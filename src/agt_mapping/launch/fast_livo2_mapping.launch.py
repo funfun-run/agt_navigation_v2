@@ -1,0 +1,32 @@
+from pathlib import Path
+
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+
+
+def generate_launch_description():
+    mapping_share = Path(get_package_share_directory("agt_mapping"))
+    backend_share = Path(get_package_share_directory("fast_livo"))
+    return LaunchDescription([
+        DeclareLaunchArgument("params_file", default_value=str(backend_share / "config" / "mid360_lio_only.yaml")),
+        DeclareLaunchArgument("use_sim_time", default_value="false"),
+        Node(
+            package="fast_livo", executable="fastlivo_mapping", name="fast_livo2_backend",
+            output="screen",
+            parameters=[LaunchConfiguration("params_file"), {
+                "use_sim_time": LaunchConfiguration("use_sim_time"),
+                "common.publish_tf": False,
+            }],
+            remappings=[("/cloud_registered", "/agt/mapping/registered_points")],
+        ),
+        Node(
+            package="agt_mapping", executable="fast_livo2_adapter.py",
+            name="agt_mapping_fast_livo2_adapter", output="screen",
+            parameters=[str(mapping_share / "config" / "fast_livo2_adapter.yaml"), {
+                "use_sim_time": LaunchConfiguration("use_sim_time")
+            }],
+        ),
+    ])

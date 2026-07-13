@@ -1,0 +1,18 @@
+repositories:
+  fast_livo2_ros2:
+    type: git
+    url: https://github.com/Aldoubt/FAST-LIVO2-ROS2.git
+    version: <pin-commit-or-tag>
+  icp_localization:
+    type: git
+    url: https://github.com/Aldoubt/icp_localization_ros2.git
+    version: <pin-commit-or-tag>
+  ndt_omp_ros2:
+    type: git
+    url: https://github.com/Aldoubt/ndt_omp_ros2.git
+    version: <pin-commit-or-tag>
+  fields2cover:
+    type: git
+    url: https://github.com/Fields2Cover/Fields2Cover.git
+    version: <pin-commit-or-tag>
+

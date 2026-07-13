@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>agt_safety</name>
+  <version>0.1.0</version>
+  <description>Safety arbitration and emergency stop interfaces.</description>
+  <maintainer email="yangxuan@example.com">yangxuan</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

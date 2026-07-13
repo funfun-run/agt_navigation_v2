@@ -1,0 +1,5 @@
+environment:
+  name: greenhouse
+  map_backend: octomap_projection
+  localization_backend: icp
+  navigation_mode: nav2

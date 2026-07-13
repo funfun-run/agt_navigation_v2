@@ -1,0 +1,21 @@
+experiment:
+  name: greenhouse_mid360_geometry_v01
+platform:
+  profile: mk_mini
+sensors:
+  profile: mid360
+environment:
+  profile: greenhouse
+mapping:
+  backend: fast_livo2
+map_processing:
+  backend: octomap_projection
+localization:
+  backend: icp
+perception:
+  backend: geometric
+navigation:
+  planner: smac_hybrid
+  controller: mppi
+safety:
+  enabled: true

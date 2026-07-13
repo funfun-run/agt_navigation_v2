@@ -1,0 +1,10 @@
+--- a/src/LIVMapper.cpp
++++ b/src/LIVMapper.cpp
+@@ -1495,1 +1495,6 @@
+-  br->sendTransform(geometry_msgs::msg::TransformStamped(createTransformStamped(transform, odomAftMapped.header.stamp, world_frame, body_frame)));
++  bool publish_tf = true;
++  this->node->get_parameter_or("common.publish_tf", publish_tf, true);
++  if (publish_tf) {
++    br->sendTransform(geometry_msgs::msg::TransformStamped(createTransformStamped(
++      transform, odomAftMapped.header.stamp, world_frame, body_frame)));
++  }

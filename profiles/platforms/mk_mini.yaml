@@ -1,0 +1,19 @@
+platform:
+  name: mk_mini
+  kinematics: differential
+  footprint_frame: base_footprint
+  base_frame: base_link
+  geometry:
+    # Provisional until the physical chassis is measured.
+    verified: false
+    length: 0.70
+    width: 0.55
+    height: 0.20
+    base_link_z: 0.10
+    footprint:
+      - [0.35, 0.275]
+      - [0.35, -0.275]
+      - [-0.35, -0.275]
+      - [-0.35, 0.275]
+  max_linear_velocity: 1.0
+  max_angular_velocity: 1.0

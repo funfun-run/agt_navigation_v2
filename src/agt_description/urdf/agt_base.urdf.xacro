@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<robot name="agt_base" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!-- All dimensions are launch-overridable. Defaults are provisional until measured. -->
+  <xacro:arg name="base_length" default="0.70"/>
+  <xacro:arg name="base_width" default="0.55"/>
+  <xacro:arg name="base_height" default="0.20"/>
+  <xacro:arg name="base_link_z" default="0.10"/>
+  <xacro:arg name="lidar_x" default="0.0"/>
+  <xacro:arg name="lidar_y" default="0.0"/>
+  <xacro:arg name="lidar_z" default="0.50"/>
+  <xacro:arg name="lidar_roll" default="0.0"/>
+  <xacro:arg name="lidar_pitch" default="0.0"/>
+  <xacro:arg name="lidar_yaw" default="0.0"/>
+
+  <material name="agt_green">
+    <color rgba="0.18 0.42 0.25 1.0"/>
+  </material>
+  <material name="sensor_black">
+    <color rgba="0.08 0.10 0.09 1.0"/>
+  </material>
+
+  <link name="base_footprint"/>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="$(arg base_length) $(arg base_width) $(arg base_height)"/>
+      </geometry>
+      <material name="agt_green"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="$(arg base_length) $(arg base_width) $(arg base_height)"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="base_footprint_to_base_link" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 $(arg base_link_z)" rpy="0 0 0"/>
+  </joint>
+
+  <link name="lidar_link">
+    <visual>
+      <origin xyz="0 0 0.025" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.035" length="0.050"/>
+      </geometry>
+      <material name="sensor_black"/>
+    </visual>
+  </link>
+
+  <joint name="base_link_to_lidar_link" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin
+      xyz="$(arg lidar_x) $(arg lidar_y) $(arg lidar_z)"
+      rpy="$(arg lidar_roll) $(arg lidar_pitch) $(arg lidar_yaw)"/>
+  </joint>
+
+  <!-- Keep the driver's established frame while exposing a sensor-neutral frame. -->
+  <link name="livox_frame"/>
+  <joint name="lidar_link_to_livox_frame" type="fixed">
+    <parent link="lidar_link"/>
+    <child link="livox_frame"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- MID360 point cloud and built-in IMU share the calibrated sensor origin. -->
+  <link name="imu_link"/>
+  <joint name="lidar_link_to_imu_link" type="fixed">
+    <parent link="lidar_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+</robot>

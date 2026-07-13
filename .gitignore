@@ -1,0 +1,23 @@
+# Build artifacts
+build/
+install/
+log/
+
+# Runtime outputs
+runtime/maps/
+runtime/rosbag/
+runtime/logs/
+runtime/results/
+runtime/cache/
+
+# Python
+__pycache__/
+*.pyc
+
+# Editors
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+

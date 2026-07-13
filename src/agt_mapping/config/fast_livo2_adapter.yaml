@@ -1,0 +1,8 @@
+/**:
+  ros__parameters:
+    input_odometry: /aft_mapped_to_init
+    output_odometry: /agt/mapping/odometry
+    odom_frame: odom
+    backend_body_frame: livox_frame
+    base_frame: base_footprint
+    publish_tf: true

@@ -1,0 +1,14 @@
+/**:
+  ros__parameters:
+    # Provisional values copied from the Phase 1 profile. Replace after survey.
+    calibration_verified: false
+    base_length: 0.70
+    base_width: 0.55
+    base_height: 0.20
+    base_link_z: 0.10
+    lidar_x: 0.0
+    lidar_y: 0.0
+    lidar_z: 0.50
+    lidar_roll: 0.0
+    lidar_pitch: 0.0
+    lidar_yaw: 0.0

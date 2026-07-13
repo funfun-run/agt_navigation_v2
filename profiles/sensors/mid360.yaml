@@ -1,0 +1,13 @@
+sensors:
+  lidar:
+    model: mid360
+    points_topic: /agt/sensors/lidar/points
+    frame_id: lidar_link
+    driver_frame_id: livox_frame
+    extrinsics:
+      parent_frame: base_link
+      calibration_file: agt_description/config/mk_mini_mid360.yaml
+  imu:
+    source: mid360_internal
+    topic: /agt/sensors/imu/data
+    frame_id: imu_link
