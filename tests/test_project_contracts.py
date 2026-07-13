@@ -39,6 +39,8 @@ def test_mid360_profile_uses_only_the_canonical_calibration_file():
     assert FRAME_NAME.fullmatch(lidar["frame_id"])
     assert FRAME_NAME.fullmatch(lidar["driver_frame_id"])
     assert TOPIC_NAME.fullmatch(lidar["points_topic"])
+    assert TOPIC_NAME.fullmatch(lidar["native_topic"])
+    assert lidar["native_message_type"] == "livox_ros_driver2/msg/CustomMsg"
 
 
 def test_calibration_has_all_required_fields_and_radian_values():
@@ -71,6 +73,21 @@ def test_fast_livo_patch_disables_the_native_tf_by_parameter():
     ).read_text(encoding="utf-8")
     assert '"common.publish_tf"' in patch
     assert "if (publish_tf)" in patch
+
+
+def test_fast_livo_dependency_is_the_selected_pinned_branch():
+    dependencies = yaml.safe_load((ROOT / "nav_dependencies.repos").read_text())
+    fast_livo = dependencies["repositories"]["fast_livo2_ros2"]
+    assert fast_livo["url"] == "https://github.com/Aldoubt/FASTLIVO2_ROS2.git"
+    assert fast_livo["version"] == "a713004f0ba0624c8fb80d85c7047fe62523c6fb"
+
+
+def test_mid360_fast_livo_uses_native_message_path():
+    config = yaml.safe_load(
+        (ROOT / "src/agt_mapping/config/mid360_lio_only.yaml").read_text()
+    )["/**"]["ros__parameters"]
+    assert config["common"]["lid_topic"] == "/agt/sensors/lidar/custom"
+    assert config["preprocess"]["lidar_type"] == 1
 
 
 def test_mid360_network_config_keeps_extrinsics_in_description_only():

@@ -66,7 +66,7 @@ class FastLivo2Adapter(Node):
             "input_odometry": "/aft_mapped_to_init",
             "output_odometry": "/agt/mapping/odometry",
             "odom_frame": "odom",
-            "backend_body_frame": "livox_frame",
+            "backend_body_frame": "imu_link",
             "base_frame": "base_footprint",
             "publish_tf": True,
         }

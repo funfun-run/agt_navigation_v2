@@ -6,7 +6,8 @@
 - `/agt/mapping/registered_points`：注册点云。
 - `odom -> base_footprint`：由当前连续里程计唯一发布。
 
-旧 FAST-LIVO2 无条件发布 `odom -> livox_frame`。使用前必须对第三方仓库应用
+算法基线固定为 `Aldoubt/FASTLIVO2_ROS2@a713004`，MID360 使用 Livox
+`CustomMsg` 输入。该版本无条件发布 `camera_init -> aft_mapped`。使用前必须应用
 `patches/fast_livo2_publish_tf.patch`；启动文件会设置 `common.publish_tf=false`，adapter
 结合 `agt_description` 外参转换并发布标准 TF。未应用补丁时禁止同时启动机器人描述。
 

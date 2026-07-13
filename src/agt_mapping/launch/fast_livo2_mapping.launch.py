@@ -9,9 +9,8 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     mapping_share = Path(get_package_share_directory("agt_mapping"))
-    backend_share = Path(get_package_share_directory("fast_livo"))
     return LaunchDescription([
-        DeclareLaunchArgument("params_file", default_value=str(backend_share / "config" / "mid360_lio_only.yaml")),
+        DeclareLaunchArgument("params_file", default_value=str(mapping_share / "config" / "mid360_lio_only.yaml")),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         Node(
             package="fast_livo", executable="fastlivo_mapping", name="fast_livo2_backend",

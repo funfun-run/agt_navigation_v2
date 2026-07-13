@@ -1,7 +1,9 @@
 sensors:
   lidar:
     model: mid360
+    native_topic: /agt/sensors/lidar/custom
     points_topic: /agt/sensors/lidar/points
+    native_message_type: livox_ros_driver2/msg/CustomMsg
     frame_id: lidar_link
     driver_frame_id: livox_frame
     extrinsics:

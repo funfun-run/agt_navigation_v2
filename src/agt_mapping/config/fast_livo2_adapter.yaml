@@ -3,6 +3,7 @@
     input_odometry: /aft_mapped_to_init
     output_odometry: /agt/mapping/odometry
     odom_frame: odom
-    backend_body_frame: livox_frame
+    # FAST-LIVO2 state is the internal IMU pose, despite its legacy child frame name.
+    backend_body_frame: imu_link
     base_frame: base_footprint
     publish_tf: true

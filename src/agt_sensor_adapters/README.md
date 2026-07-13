@@ -9,8 +9,14 @@ ros2 launch agt_sensor_adapters mid360.launch.py
 
 统一输出：
 
-- `/agt/sensors/lidar/points`：Livox PointCloud2，frame 为 `livox_frame`。
+- `/agt/sensors/lidar/custom`：`livox_ros_driver2/msg/CustomMsg`，保留每点
+  `offset_time/line/tag`，供 FAST-LIVO2 使用。
 - `/agt/sensors/imu/data`：MID360 内置 IMU，frame 为 `livox_frame`。
+
+这里有意使用 `xfer_format=1` 的 Livox 原生消息。选定的
+`Aldoubt/FASTLIVO2_ROS2@a713004` 只有 Livox `CustomMsg` 路径会使用每点时间、线号和
+回波标签；它没有 MID360 PointCloud2 handler。PointCloud2 仍作为 V2 注册点云等通用
+输出格式，不作为该后端的原始输入。
 
 网络配置填写在 `config/mid360_network.json`。当前沿用旧仓库实机配置：主机
 `192.168.1.5`，MID360 `192.168.1.12`。更换网卡或雷达后只修改该文件，不修改

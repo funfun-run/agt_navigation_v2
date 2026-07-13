@@ -27,8 +27,8 @@ def generate_launch_description():
                 output="screen",
                 parameters=[
                     {
-                        # FAST-LIVO2 consumes Livox PointCloud2 (PointXYZRTLT).
-                        "xfer_format": 0,
+                        # FASTLIVO2_ROS2 consumes per-point timing from CustomMsg.
+                        "xfer_format": 1,
                         "multi_topic": 0,
                         "data_src": 0,
                         "publish_freq": LaunchConfiguration("publish_freq"),
@@ -38,7 +38,7 @@ def generate_launch_description():
                     }
                 ],
                 remappings=[
-                    ("/livox/lidar", "/agt/sensors/lidar/points"),
+                    ("/livox/lidar", "/agt/sensors/lidar/custom"),
                     ("/livox/imu", "/agt/sensors/imu/data"),
                 ],
             ),

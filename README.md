@@ -35,6 +35,8 @@ ros2 launch agt_description description.launch.py \
 - ROS package 统一以 `agt_` 开头；节点名使用 `agt_<模块>_<功能>`。
 - 标准 frame 不带前导 `/`：`map`、`odom`、`base_footprint`、`base_link`、`lidar_link`、`imu_link`。
 - `livox_frame` 仅作为旧驱动兼容 frame；V2 模块接口统一使用 `lidar_link`。
+- MID360 到 FAST-LIVO2 的后端输入使用 `/agt/sensors/lidar/custom`；跨模块点云统一使用
+  PointCloud2。不要把 Livox `CustomMsg` 扩散到地图处理、感知和导航模块。
 - V2 topic 放在 `/agt/<领域>/<名称>` 下，例如 `/agt/sensors/lidar/points`。
 - launch 参数和 YAML key 使用相同名称；长度用米，角度用弧度。
 - TF 发布责任固定：全局定位发布 `map -> odom`，连续里程计发布

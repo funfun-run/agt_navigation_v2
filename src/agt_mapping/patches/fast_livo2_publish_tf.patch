@@ -1,10 +1,17 @@
 --- a/src/LIVMapper.cpp
 +++ b/src/LIVMapper.cpp
-@@ -1495,1 +1495,6 @@
--  br->sendTransform(geometry_msgs::msg::TransformStamped(createTransformStamped(transform, odomAftMapped.header.stamp, world_frame, body_frame)));
+@@ -74,2 +74,3 @@ void LIVMapper::readParameters(rclcpp::Node::SharedPtr &node)
+   try_declare.template operator()<int>("common.lidar_en", 1);
+   try_declare.template operator()<std::string>("common.img_topic", "/left_camera/image");
++  try_declare.template operator()<bool>("common.publish_tf", true);
+@@ -1367,4 +1368,9 @@ void LIVMapper::publish_odometry(const rclcpp::Publisher<nav_msgs::msg::Odometry
+   q.setZ(geoQuat.z);
+   transform.setRotation(q);
+-  br->sendTransform(geometry_msgs::msg::TransformStamped(createTransformStamped(transform, odomAftMapped.header.stamp, "camera_init", "aft_mapped")));
 +  bool publish_tf = true;
-+  this->node->get_parameter_or("common.publish_tf", publish_tf, true);
++  this->node->get_parameter("common.publish_tf", publish_tf);
 +  if (publish_tf) {
 +    br->sendTransform(geometry_msgs::msg::TransformStamped(createTransformStamped(
-+      transform, odomAftMapped.header.stamp, world_frame, body_frame)));
++      transform, odomAftMapped.header.stamp, "camera_init", "aft_mapped")));
 +  }
+   pubOdomAftMapped->publish(odomAftMapped);

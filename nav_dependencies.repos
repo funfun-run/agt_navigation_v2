@@ -1,8 +1,12 @@
 repositories:
   fast_livo2_ros2:
     type: git
-    url: https://github.com/Aldoubt/FAST-LIVO2-ROS2.git
-    version: <pin-commit-or-tag>
+    url: https://github.com/Aldoubt/FASTLIVO2_ROS2.git
+    version: a713004f0ba0624c8fb80d85c7047fe62523c6fb
+  rpg_vikit_ros2_fisheye:
+    type: git
+    url: https://github.com/Rhymer-Lcy/rpg_vikit_ros2_fisheye.git
+    version: main
   icp_localization:
     type: git
     url: https://github.com/Aldoubt/icp_localization_ros2.git
@@ -15,4 +19,3 @@ repositories:
     type: git
     url: https://github.com/Fields2Cover/Fields2Cover.git
     version: <pin-commit-or-tag>
-
