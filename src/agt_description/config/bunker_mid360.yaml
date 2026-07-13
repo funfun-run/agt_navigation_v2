@@ -1,0 +1,15 @@
+/**:
+  ros__parameters:
+    # Chassis outer dimensions come from the supplied product drawing.
+    calibration_verified: false
+    base_length: 1.023
+    base_width: 0.778
+    base_height: 0.400
+    # Provisional until the physical base_link datum is measured.
+    base_link_z: 0.200
+    lidar_x: 0.0
+    lidar_y: 0.0
+    lidar_z: 0.50
+    lidar_roll: 0.0
+    lidar_pitch: 0.0
+    lidar_yaw: 0.0

@@ -1,0 +1,11 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -148,8 +148,8 @@ ament_target_dependencies(imu_proc ${dependencies})
+ # linking libraries or executables to public dependencies
+ target_link_libraries(laser_mapping 
+-    ${CMAKE_SOURCE_DIR}/../../install/vikit_common/lib/libvikit_common.so 
+-    ${CMAKE_SOURCE_DIR}/../../install/vikit_ros/lib/libvikit_ros.so
++    vikit_common::vikit_common
++    vikit_ros::vikit_ros
+     ${COMMON_DEPENDENCIES}
+ )

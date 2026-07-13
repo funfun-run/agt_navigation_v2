@@ -1,0 +1,25 @@
+--- a/include/LIVMapper.h
++++ b/include/LIVMapper.h
+@@
++  void publish_frame_lidar(const rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr &publisher);
+@@
++  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudLidar;
+--- a/src/LIVMapper.cpp
++++ b/src/LIVMapper.cpp
+@@
++  pubLaserCloudLidar = this->node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered_lidar", 100);
+@@
++  publish_frame_lidar(pubLaserCloudLidar);
+@@
++void LIVMapper::publish_frame_lidar(
++  const rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr &publisher)
++{
++  PointCloudXYZI::Ptr cloud(dense_map_en ? feats_undistort : feats_down_body);
++  if (cloud == nullptr || cloud->empty()) return;
++
++  sensor_msgs::msg::PointCloud2 message;
++  pcl::toROSMsg(*cloud, message);
++  message.header.stamp = odomAftMapped.header.stamp;
++  message.header.frame_id = "lidar_link";
++  publisher->publish(message);
++}

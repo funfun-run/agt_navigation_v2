@@ -2,6 +2,9 @@
   ros__parameters:
     input_odometry: /aft_mapped_to_init
     output_odometry: /agt/mapping/odometry
+    input_registered_points: /agt/mapping/backend/registered_points
+    output_registered_points: /agt/mapping/registered_points
+    registered_points_frame: odom
     odom_frame: odom
     # FAST-LIVO2 state is the internal IMU pose, despite its legacy child frame name.
     backend_body_frame: imu_link

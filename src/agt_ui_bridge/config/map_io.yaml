@@ -1,0 +1,5 @@
+/**:
+  ros__parameters:
+    source_map_topic: /agt/map/global_occupancy
+    edited_map_topic: /agt/map/edited
+    frame_id: map

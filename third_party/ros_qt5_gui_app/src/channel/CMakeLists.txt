@@ -1,0 +1,57 @@
+include(GTestHelper)
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+if( BUILD_WITH_CHANNEL_AUTO STREQUAL "ON")
+    message("BUILD_WITH_CHANNEL_AUTO")
+    if(DEFINED ENV{ROS_VERSION} AND "$ENV{ROS_VERSION}" STREQUAL "1")
+        message("Auto USE ROS1 channel")
+        add_subdirectory(ros1)
+    elseif(DEFINED ENV{ROS_VERSION} AND "$ENV{ROS_VERSION}" STREQUAL "2")
+        message("Auto USE ROS2 channel")
+        add_subdirectory(ros2)
+    endif()
+elseif(BUILD_WITH_CHANNEL_ROS2 STREQUAL "ON")
+    message("Manual USE ROS2 channel")
+    add_subdirectory(ros2)
+elseif(BUILD_WITH_CHANNEL_ROS1 STREQUAL "ON")
+    message("Manual USE ROS1 channel")
+    add_subdirectory(ros1)
+endif()
+
+message("build ROSBridge channel")
+add_subdirectory(rosbridge)
+
+#manager
+find_package(Boost REQUIRED COMPONENTS filesystem)
+
+
+add_library(channel STATIC
+  channel_manager.cc
+  channel_manager.h
+  virtual_channel_node.h
+)
+
+if(WIN32)
+  target_link_libraries(channel PUBLIC Boost::filesystem common framework)
+else()
+  target_link_libraries(channel PUBLIC Boost::filesystem pthread dl common framework)
+endif()
+
+target_include_directories(channel PUBLIC 
+${CMAKE_CURRENT_SOURCE_DIR}
+manager
+)
+
+set_target_properties(channel PROPERTIES
+RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+)
+
+#######test
+if(WIN32)
+  set(TEST_LINK_LIBRARIES channel)
+else()
+  find_library(DL_LIBRARY dl)
+  set(TEST_LINK_LIBRARIES channel ${DL_LIBRARY})
+endif()
+AddTest()

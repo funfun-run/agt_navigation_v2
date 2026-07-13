@@ -10,17 +10,24 @@
 ros2 launch agt_description description.launch.py
 ```
 
+BUNKER 使用产品图中的 `1.023 x 0.778 x 0.400 m` 外廓尺寸：
+
+```bash
+ros2 launch agt_description bunker_description.launch.py
+```
+
 MID360 六自由度外参的唯一持久化填写位置是
-`config/mk_mini_mid360.yaml`。launch 会从该文件读取默认值；命令行参数仅用于临时覆盖：
+`config/mk_mini_mid360.yaml`；BUNKER 对应 `config/bunker_mid360.yaml`。launch 会从配置读取
+默认值，命令行参数仅用于临时覆盖：
 
 ```bash
 ros2 launch agt_description description.launch.py \
   lidar_x:=0.12 lidar_z:=0.63 lidar_pitch:=-0.0872665
 ```
 
-当前默认尺寸和外参来自 Phase 1 占位 profile，并非实测标定值，配置中的
-`calibration_verified: false` 不应在实车验收前改为 `true`。不需要同步修改 Xacro、
-launch 或 sensor profile。
+BUNKER 外廓尺寸来自已提供的产品图，但 `base_link` 基准高度和 MID360 外参仍未实测，配置中的
+`calibration_verified: false` 不应在实车验收前改为 `true`。不需要同步修改 Xacro、launch
+或 sensor profile。
 
 ## Frame 兼容策略
 

@@ -1,8 +1,12 @@
 repositories:
-  fast_livo2_ros2:
+  bunker_ros2:
     type: git
-    url: https://github.com/Aldoubt/FASTLIVO2_ROS2.git
-    version: a713004f0ba0624c8fb80d85c7047fe62523c6fb
+    url: https://github.com/agilexrobotics/bunker_ros2.git
+    version: c4737f249129e88c8e9e0bfeb3af81b498a0ebbe
+  ugv_sdk:
+    type: git
+    url: https://github.com/agilexrobotics/ugv_sdk.git
+    version: c3dfaf444f9bae10757e546acae055aaf4a13de7
   rpg_vikit_ros2_fisheye:
     type: git
     url: https://github.com/Rhymer-Lcy/rpg_vikit_ros2_fisheye.git
@@ -10,10 +14,6 @@ repositories:
   icp_localization:
     type: git
     url: https://github.com/Aldoubt/icp_localization_ros2.git
-    version: <pin-commit-or-tag>
-  ndt_omp_ros2:
-    type: git
-    url: https://github.com/Aldoubt/ndt_omp_ros2.git
     version: <pin-commit-or-tag>
   fields2cover:
     type: git

@@ -1,0 +1,14 @@
+agt_local_obstacle_filter:
+  ros__parameters:
+    input_topic: /agt/mapping/registered_points_lidar
+    output_topic: /agt/perception/obstacle_cloud
+    target_frame: base_footprint
+    min_height: 0.08
+    max_height: 1.80
+    min_range: 0.35
+    max_range: 5.0
+    robot_min_x: -0.5915
+    robot_max_x: 0.5915
+    robot_min_y: -0.469
+    robot_max_y: 0.469
+    transform_timeout: 0.10

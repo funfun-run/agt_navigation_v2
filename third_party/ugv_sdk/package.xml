@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>ugv_sdk</name>
+  <version>0.1.6</version>
+  <description>Weston Robot Platform SDK</description>
+
+  <author email="ruixiang.du@westonrobot.com">Ruixiang Du</author>
+  <maintainer email="ruixiang.du@westonrobot.com">Ruixiang Du</maintainer>
+
+  <license>BSD</license>
+
+  <url type="website">https://www.westonrobot.com/</url>
+  <url type="bugtracker">https://github.com/westonrobot/ugv_sdk/issues</url>
+  <url type="repository">https://github.com/westonrobot/ugv_sdk</url>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>asio</depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

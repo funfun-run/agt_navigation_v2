@@ -92,3 +92,4 @@
       colmap_output_en: false
       filter_size_pcd: 0.1
       interval: -1
+      output_directory: runtime/maps/fast_livo2

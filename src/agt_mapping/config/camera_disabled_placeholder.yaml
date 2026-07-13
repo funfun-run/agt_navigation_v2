@@ -1,0 +1,17 @@
+/**:
+  ros__parameters:
+    # FAST-LIVO2 initializes its camera model even when common.img_en is false.
+    # These upstream sample values satisfy that contract; they are not robot calibration.
+    camera:
+      model: Pinhole
+      width: 1280
+      height: 1024
+      scale: 0.5
+      fx: 1176.2874292149932
+      fy: 1176.21585445307
+      cx: 592.1187382755453
+      cy: 509.0864309628322
+      d0: -0.13218037625958456
+      d1: 0.15360732717073536
+      d2: 0.00036918417348059815
+      d3: -0.00031715324469463964

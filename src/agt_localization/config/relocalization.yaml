@@ -1,0 +1,32 @@
+/**:
+  ros__parameters:
+    global_map_pcd: ""
+    global_frame: map
+    odom_frame: odom
+    base_frame: base_link
+    tracking_frame: lidar_link
+    cloud_topic: /agt/mapping/registered_points_lidar
+    initialpose_topic: /initialpose
+    publish_tf: true
+    publish_aligned_cloud: true
+    backend: ndt
+    map_voxel_leaf_size: 0.25
+    scan_voxel_leaf_size: 0.25
+    min_scan_points: 200
+    fitness_score_threshold: 2.0
+    max_iterations: 100
+    transform_epsilon: 1.0e-6
+    euclidean_fitness_epsilon: 1.0e-6
+    max_correspondence_distance: 3.0
+    crop_box_enabled: true
+    crop_box_frame_mode: scan_local
+    crop_x_min: 0.0
+    crop_x_max: 30.0
+    crop_y_min: -15.0
+    crop_y_max: 15.0
+    crop_z_min: -2.0
+    crop_z_max: 2.0
+    ndt_resolution: 1.0
+    ndt_step_size: 0.1
+    ndt_num_threads: 0
+    ndt_search_method: DIRECT7

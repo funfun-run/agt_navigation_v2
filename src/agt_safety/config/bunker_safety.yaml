@@ -1,0 +1,16 @@
+agt_tracked_safety_controller:
+  ros__parameters:
+    startup_motion_enabled: false
+    navigation_timeout: 0.50
+    manual_timeout: 0.35
+    publish_rate: 20.0
+    max_forward_speed: 0.50
+    max_reverse_speed: 0.25
+    max_angular_speed: 0.60
+    max_track_speed: 0.65
+    # Estimated track center distance; replace after physical measurement.
+    effective_track_width: 0.62
+    max_linear_acceleration: 0.35
+    max_linear_deceleration: 0.70
+    max_angular_acceleration: 0.80
+    max_angular_deceleration: 1.20

@@ -1,0 +1,16 @@
+{
+  "dependencies": [
+    "qt5-base",
+    "qt5-svg",
+    "boost-filesystem",
+    "boost-thread",
+    "boost-system",
+    "boost-dll",
+    "boost-asio",
+    "opencv",
+    "eigen3",
+    "sdl2",
+    "sdl2-image"
+  ],
+  "builtin-baseline": "b322364f06308bdd24823f9d8f03fe0cc86fd46f"
+}

@@ -5,6 +5,7 @@ import rclpy
 from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from sensor_msgs.msg import PointCloud2
 from tf2_ros import Buffer, TransformBroadcaster, TransformListener
 
 
@@ -65,6 +66,9 @@ class FastLivo2Adapter(Node):
         defaults = {
             "input_odometry": "/aft_mapped_to_init",
             "output_odometry": "/agt/mapping/odometry",
+            "input_registered_points": "/agt/mapping/backend/registered_points",
+            "output_registered_points": "/agt/mapping/registered_points",
+            "registered_points_frame": "odom",
             "odom_frame": "odom",
             "backend_body_frame": "imu_link",
             "base_frame": "base_footprint",
@@ -85,7 +89,27 @@ class FastLivo2Adapter(Node):
         self.subscription = self.create_subscription(
             Odometry, self.get_parameter("input_odometry").value, self.convert, 10
         )
+        self.points_publisher = self.create_publisher(
+            PointCloud2,
+            self.get_parameter("output_registered_points").value,
+            100,
+        )
+        self.points_subscription = self.create_subscription(
+            PointCloud2,
+            self.get_parameter("input_registered_points").value,
+            self.publish_registered_points,
+            100,
+        )
+        self.registered_points_frame = self.get_parameter(
+            "registered_points_frame"
+        ).value
         self.warned_missing_tf = False
+
+    def publish_registered_points(self, message):
+        # FAST-LIVO2 points are already expressed in its world coordinates; V2 names
+        # that same continuous world frame odom.
+        message.header.frame_id = self.registered_points_frame
+        self.points_publisher.publish(message)
 
     def convert(self, message):
         try:

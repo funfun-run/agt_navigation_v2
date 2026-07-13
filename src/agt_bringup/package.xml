@@ -8,6 +8,17 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <exec_depend>agt_chassis</exec_depend>
+  <exec_depend>agt_description</exec_depend>
+  <exec_depend>agt_localization</exec_depend>
+  <exec_depend>agt_mapping</exec_depend>
+  <exec_depend>agt_map_processing</exec_depend>
+  <exec_depend>agt_navigation</exec_depend>
+  <exec_depend>agt_perception</exec_depend>
+  <exec_depend>agt_safety</exec_depend>
+  <exec_depend>agt_sensor_adapters</exec_depend>
+  <exec_depend>agt_ui_bridge</exec_depend>
+  <exec_depend>ros2bag</exec_depend>
   <export>
     <build_type>ament_cmake</build_type>
   </export>

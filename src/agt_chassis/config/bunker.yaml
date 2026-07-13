@@ -1,0 +1,13 @@
+agt_chassis_command_guard:
+  ros__parameters:
+    input_topic: /agt/safety/cmd_vel
+    output_topic: /agt/chassis/cmd_vel
+    command_timeout: 0.20
+    publish_rate: 30.0
+    hard_max_linear_speed: 0.60
+    hard_max_angular_speed: 0.70
+
+agt_bunker_status_bridge:
+  ros__parameters:
+    raw_status_topic: /agt/chassis/status/raw
+    status_timeout: 0.50

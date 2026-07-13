@@ -9,6 +9,7 @@ runtime/rosbag/
 runtime/logs/
 runtime/results/
 runtime/cache/
+runtime/gui/
 
 # Python
 __pycache__/
@@ -20,4 +21,3 @@ __pycache__/
 
 # OS
 .DS_Store
-
