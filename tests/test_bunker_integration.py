@@ -59,6 +59,11 @@ def test_driver_has_tf_switch_and_independent_watchdog():
     assert '("/cmd_vel", "/agt/chassis/cmd_vel")' in launch
 
 
+def test_bag_recorder_keeps_remote_controller_state():
+    recorder = (ROOT / "src/agt_bringup/launch/bag_record.launch.py").read_text()
+    assert '"/agt/chassis/rc_state"' in recorder
+
+
 def test_estop_also_revokes_motion_enable():
     source = (
         ROOT / "src/agt_safety/scripts/tracked_safety_controller.py"

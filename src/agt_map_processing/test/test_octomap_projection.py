@@ -17,6 +17,7 @@ def test_octomap_consumes_lidar_frame_cloud_for_dynamic_sensor_origin():
         PACKAGE_ROOT / "launch" / "octomap_projection.launch.py"
     ).read_text(encoding="utf-8")
     assert 'default_value="/agt/mapping/registered_points_lidar"' in launch_source
+    assert 'default_value="/agt/map/mapping_occupancy"' in launch_source
 
 
 def test_octomap_projection_uses_v2_frame_contract():

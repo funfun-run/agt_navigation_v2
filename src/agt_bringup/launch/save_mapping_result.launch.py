@@ -31,7 +31,7 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("runtime_dir", default_value=default_runtime_dir()),
             DeclareLaunchArgument("map_name", default_value="mid360_map"),
-            DeclareLaunchArgument("map_topic", default_value="/agt/map/global_occupancy"),
+            DeclareLaunchArgument("map_topic", default_value="/agt/map/mapping_occupancy"),
             OpaqueFunction(function=prepare_map_directory),
             ExecuteProcess(
                 cmd=[

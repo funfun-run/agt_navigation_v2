@@ -7,9 +7,12 @@
 当前已迁移旧仓库的在线 OctoMap 投影链：
 
 - 输入：`/agt/mapping/registered_points_lidar` (`sensor_msgs/msg/PointCloud2`，`lidar_link` frame)。
-- 输出：`/agt/map/global_occupancy` (`nav_msgs/msg/OccupancyGrid`)。
+- 建图输出：`/agt/map/mapping_occupancy` (`nav_msgs/msg/OccupancyGrid`)。
 - 默认分辨率：`0.05 m`。
 - 默认仅把 `0.10 m <= z <= 1.00 m` 的点作为投影障碍候选。
+
+建图工作图与导航静态图分开：OctoMap 只发布 `/agt/map/mapping_occupancy`，导航模式的
+`map_server` 才发布 `/agt/map/global_occupancy`。这样建图 RViz 不会误显示仍在运行的旧导航地图。
 
 FAST-LIVO2 和投影节点都启动后，回放传感器 bag：
 

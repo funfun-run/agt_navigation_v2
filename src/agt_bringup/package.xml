@@ -19,6 +19,7 @@
   <exec_depend>agt_sensor_adapters</exec_depend>
   <exec_depend>agt_ui_bridge</exec_depend>
   <exec_depend>ros2bag</exec_depend>
+  <exec_depend>rviz2</exec_depend>
   <export>
     <build_type>ament_cmake</build_type>
   </export>

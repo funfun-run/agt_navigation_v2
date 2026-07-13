@@ -21,7 +21,8 @@
 - `/agt/chassis/status`
 - `/agt/chassis/connected`
 - `/agt/experiment/events`
-- `/agt/map/global_occupancy`: 建图投影与导航 map_server 共用的二维地图接口
+- `/agt/map/mapping_occupancy`: OctoMap 建图过程中的实时二维工作图
+- `/agt/map/global_occupancy`: 导航模式下由 Nav2 map server 发布的已保存静态地图
 
 ## 导航动作与速度链
 - `/navigate_to_pose`: `nav2_msgs/action/NavigateToPose`

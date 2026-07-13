@@ -16,6 +16,7 @@ RECORDED_TOPICS = [
     "/agt/mapping/odometry",
     "/agt/mapping/registered_points",
     "/agt/mapping/registered_points_lidar",
+    "/agt/map/mapping_occupancy",
     "/agt/map/global_occupancy",
     "/agt/perception/obstacle_cloud",
     "/agt/localization/status",
@@ -30,6 +31,7 @@ RECORDED_TOPICS = [
     "/agt/chassis/odometry",
     "/agt/chassis/status",
     "/agt/chassis/connected",
+    "/agt/chassis/rc_state",
     "/goal_pose",
     "/initialpose",
 ]

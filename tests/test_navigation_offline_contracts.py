@@ -82,6 +82,13 @@ def test_system_bringup_separates_mapping_and_navigation_modes():
     assert '"save_pcd": "false"' in navigation
     assert mapping.count('"bunker_description.launch.py"') == 1
     assert navigation.count('"bunker_description.launch.py"') == 1
+    assert 'package="rviz2"' in mapping
+    assert '"ros_qt5_gui.launch.py"' not in mapping
+    assert '"ros_qt5_gui.launch.py"' in navigation
+    assert '"map_topic": "/agt/map/mapping_occupancy"' in mapping
+    assert "/agt/map/global_occupancy" in (
+        ROOT / "src/agt_navigation/config/nav2_bunker.yaml"
+    ).read_text()
 
 
 def test_bag_recorder_captures_debugging_contracts():
@@ -89,6 +96,7 @@ def test_bag_recorder_captures_debugging_contracts():
     for topic in (
         "/agt/sensors/lidar/custom",
         "/agt/mapping/odometry",
+        "/agt/map/mapping_occupancy",
         "/agt/map/global_occupancy",
         "/agt/navigation/cmd_vel_raw",
         "/agt/safety/cmd_vel",

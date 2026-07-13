@@ -7,6 +7,7 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, Opaq
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.actions import Node
 
 
 def share(package):
@@ -47,7 +48,7 @@ def generate_launch_description():
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("start_sensor", default_value="true"),
             DeclareLaunchArgument("start_chassis", default_value="true"),
-            DeclareLaunchArgument("start_gui", default_value="true"),
+            DeclareLaunchArgument("start_rviz", default_value="true"),
             DeclareLaunchArgument("record_bag", default_value="false"),
             OpaqueFunction(function=prepare_runtime),
             include(
@@ -81,6 +82,7 @@ def generate_launch_description():
                     "params_file": str(
                         share("agt_map_processing") / "config" / "octomap_projection.yaml"
                     ),
+                    "map_topic": "/agt/map/mapping_occupancy",
                     "use_sim_time": use_sim_time,
                 },
             ),
@@ -90,11 +92,17 @@ def generate_launch_description():
                 {"use_sim_time": use_sim_time},
                 IfCondition(LaunchConfiguration("start_chassis")),
             ),
-            include(
-                "agt_ui_bridge",
-                "ros_qt5_gui.launch.py",
-                {"use_sim_time": use_sim_time},
-                IfCondition(LaunchConfiguration("start_gui")),
+            Node(
+                package="rviz2",
+                executable="rviz2",
+                name="agt_mapping_rviz",
+                arguments=[
+                    "-d",
+                    str(share("agt_bringup") / "config" / "mapping.rviz"),
+                ],
+                parameters=[{"use_sim_time": use_sim_time}],
+                output="screen",
+                condition=IfCondition(LaunchConfiguration("start_rviz")),
             ),
             include(
                 "agt_bringup",

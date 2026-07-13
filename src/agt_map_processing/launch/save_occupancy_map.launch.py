@@ -7,7 +7,7 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument(
-                "map_topic", default_value="/agt/map/global_occupancy"
+                "map_topic", default_value="/agt/map/mapping_occupancy"
             ),
             DeclareLaunchArgument(
                 "map_prefix", default_value="runtime/maps/mid360_map"

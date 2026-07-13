@@ -37,7 +37,6 @@ def generate_launch_description():
         "use_sim_time": LaunchConfiguration("use_sim_time"),
         "start_sensor": LaunchConfiguration("start_sensor"),
         "start_chassis": LaunchConfiguration("start_chassis"),
-        "start_gui": LaunchConfiguration("start_gui"),
         "record_bag": LaunchConfiguration("record_bag"),
     }
     return LaunchDescription(
@@ -50,7 +49,16 @@ def generate_launch_description():
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("start_sensor", default_value="true"),
             DeclareLaunchArgument("start_chassis", default_value="true"),
-            DeclareLaunchArgument("start_gui", default_value="true"),
+            DeclareLaunchArgument(
+                "start_rviz",
+                default_value="true",
+                description="Start the mapping visualization in mapping mode",
+            ),
+            DeclareLaunchArgument(
+                "start_gui",
+                default_value="true",
+                description="Start the Qt5 operator GUI in navigation mode",
+            ),
             DeclareLaunchArgument("record_bag", default_value="false"),
             DeclareLaunchArgument("map_name", default_value="mid360_map"),
             DeclareLaunchArgument("map", default_value=""),
@@ -60,7 +68,11 @@ def generate_launch_description():
             LogInfo(msg=["AGT system mode: ", LaunchConfiguration("mode")]),
             IncludeLaunchDescription(
                 bringup_launch("mapping_mode.launch.py"),
-                launch_arguments={**common, "map_name": LaunchConfiguration("map_name")}.items(),
+                launch_arguments={
+                    **common,
+                    "map_name": LaunchConfiguration("map_name"),
+                    "start_rviz": LaunchConfiguration("start_rviz"),
+                }.items(),
                 condition=LaunchConfigurationEquals("mode", "mapping"),
             ),
             IncludeLaunchDescription(
@@ -70,6 +82,7 @@ def generate_launch_description():
                     "map": LaunchConfiguration("map"),
                     "global_map_pcd": LaunchConfiguration("global_map_pcd"),
                     "backend": LaunchConfiguration("backend"),
+                    "start_gui": LaunchConfiguration("start_gui"),
                 }.items(),
                 condition=LaunchConfigurationEquals("mode", "navigation"),
             ),

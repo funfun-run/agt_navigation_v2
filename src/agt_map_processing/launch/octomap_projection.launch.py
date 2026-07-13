@@ -21,7 +21,7 @@ def generate_launch_description():
                 "cloud_topic", default_value="/agt/mapping/registered_points_lidar"
             ),
             DeclareLaunchArgument(
-                "map_topic", default_value="/agt/map/global_occupancy"
+                "map_topic", default_value="/agt/map/mapping_occupancy"
             ),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             Node(
