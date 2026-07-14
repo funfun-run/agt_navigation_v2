@@ -12,6 +12,28 @@
 - Do not modify validated parameters or datasets from the legacy repository without explicit approval.
 - Every change that affects architecture or interfaces must update `docs/`, this file, and `docs/migration/migration_matrix.md`.
 
+## Vehicle Geometry Contract
+- `profiles/platforms/<platform>.yaml` is the canonical source for vehicle geometry.
+- Nav2, perception, and future coverage validation must consume or be contract-tested against the selected platform profile.
+- Do not maintain a separate coverage-planning footprint or silently add a second safety margin.
+- Changes to verified vehicle dimensions require explicit approval and corresponding contract-test updates.
+
+## Semantic Map Contract
+- Semantic geometry uses `frame_id: map`, metric coordinates, and ROS right-handed axes.
+- The versioned contract is `docs/interfaces/semantic_map_schema.md` plus `src/agt_ui_bridge/config/semantic_schema.yaml`.
+- Keep semantic GeoJSON separate from the base OccupancyGrid; never write semantic zones into the source PGM.
+- Versioned examples live under `docs/interfaces/examples/`; runtime semantic files live under `runtime/maps/<map_id>/semantic/` and are not committed.
+- Schema contract completion does not imply that Qt annotation, KeepoutFilter, Fields2Cover, path repair, or coverage execution is implemented.
+- Project-owned semantic data classes and file I/O under `agt_ui_bridge` are data-contract code, not third-party semantic algorithm migration.
+- Keep map transforms and semantic file logic free of Qt and ROS dependencies so they remain independently testable.
+- The semantic editor treats the base PGM/YAML as read-only and writes only versioned GeoJSON plus `coverage.yaml`.
+- Keep the project-owned semantic editor separate from `third_party/ros_qt5_gui_app`; do not patch vendor UI code for semantic authoring.
+- Semantic topology and containment checks must use Shapely/GEOS; do not replace them with project-owned polygon Boolean algorithms.
+- Footprint feasibility consumes `navigation_footprint` from the selected platform profile. Any extra boundary clearance must be explicit and defaults to zero.
+- The semantic map server uses standard ROS messages/services and transactional candidate loading; a failed load must not replace or clear the last valid products.
+- TASK-06 keepout masks rasterize enabled exclusion/keepout zones and configurable field exterior without modifying the base map.
+- Keepout masks must preserve the base OccupancyGrid metadata exactly. Do not connect them to Nav2 before TASK-07.
+
 ## Phase 1 Allowed Work
 - Create repository directories and ROS 2 package skeletons.
 - Define TF, topic, message, service, and action contracts.
