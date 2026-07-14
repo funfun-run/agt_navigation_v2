@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "schema_version": "1.0",
+  "map_id": "example_semantic",
+  "frame_id": "map",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Polygon", "coordinates": [[[0.0, 0.0], [8.0, 0.0], [8.0, 6.0], [0.0, 6.0], [0.0, 0.0]]]},
+      "properties": {"id": "field_01", "feature_type": "field_boundary", "name": "示例作业区", "enabled": true, "frame_id": "map"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Polygon", "coordinates": [[[3.0, 2.0], [4.0, 2.0], [4.0, 3.0], [3.0, 3.0], [3.0, 2.0]]]},
+      "properties": {"id": "exclusion_01", "feature_type": "exclusion_zone", "name": "内部障碍", "enabled": true, "frame_id": "map"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [1.0, 1.0]},
+      "properties": {"id": "entry_01", "feature_type": "entry_pose", "name": "入口", "enabled": true, "frame_id": "map", "yaw": 0.0}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "LineString", "coordinates": [[1.0, 1.0], [7.0, 1.0]]},
+      "properties": {"id": "direction_01", "feature_type": "work_direction", "name": "作业方向", "enabled": true, "frame_id": "map"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "LineString", "coordinates": [[1.0, 1.5], [7.0, 1.5]]},
+      "properties": {"id": "row_01", "feature_type": "row_centerline", "name": "作物行 1", "enabled": true, "frame_id": "map"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "LineString", "coordinates": [[1.0, 4.0], [7.0, 4.0]]},
+      "properties": {"id": "row_02", "feature_type": "row_centerline", "name": "作物行 2", "enabled": true, "frame_id": "map"}
+    }
+  ]
+}

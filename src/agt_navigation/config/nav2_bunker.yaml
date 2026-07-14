@@ -214,12 +214,18 @@ global_costmap:
       track_unknown_space: true
       footprint: "[[0.5915, 0.469], [0.5915, -0.469], [-0.5915, -0.469], [-0.5915, 0.469]]"
       footprint_padding: 0.01
-      plugins: [static_layer, inflation_layer]
+      plugins: [static_layer]
+      filters: [keepout_filter, keepout_inflation_layer]
       static_layer:
         plugin: nav2_costmap_2d::StaticLayer
         map_topic: /agt/map/global_occupancy
         map_subscribe_transient_local: true
-      inflation_layer:
+      keepout_filter:
+        plugin: nav2_costmap_2d::KeepoutFilter
+        enabled: true
+        filter_info_topic: /agt/map/keepout_filter_info
+        transform_tolerance: 0.25
+      keepout_inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
         cost_scaling_factor: 4.0
         inflation_radius: 0.75
@@ -231,6 +237,15 @@ map_server:
     yaml_filename: ""
     topic_name: /agt/map/global_occupancy
     frame_id: map
+
+costmap_filter_info_server:
+  ros__parameters:
+    use_sim_time: false
+    type: 0
+    filter_info_topic: /agt/map/keepout_filter_info
+    mask_topic: /agt/map/keepout_mask
+    base: 0.0
+    multiplier: 1.0
 
 planner_server:
   ros__parameters:

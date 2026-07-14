@@ -1,0 +1,128 @@
+schema_version: "1.0"
+coordinate_contract:
+  frame_id: map
+  units: meters
+  angle_units: radians
+  axis_convention: ros_right_handed
+  geojson_crs_member_allowed: false
+
+semantic_map:
+  type: FeatureCollection
+  required_members:
+    - type
+    - schema_version
+    - map_id
+    - frame_id
+    - features
+  common_feature_properties:
+    required:
+      - id
+      - feature_type
+      - name
+      - enabled
+      - frame_id
+    id_pattern: "^[a-z][a-z0-9_]*$"
+  feature_types:
+    field_boundary:
+      geometry: Polygon
+      minimum_count: 1
+      minimum_unique_vertices: 3
+      ring_must_be_closed: true
+    exclusion_zone:
+      geometry: Polygon
+      minimum_count: 1
+      minimum_unique_vertices: 3
+      ring_must_be_closed: true
+    entry_pose:
+      geometry: Point
+      minimum_count: 1
+      required_properties: [yaw]
+    work_direction:
+      geometry: LineString
+      minimum_count: 1
+      minimum_points: 2
+    row_centerline:
+      geometry: LineString
+      minimum_count: 0
+      minimum_points: 2
+    headland_zone:
+      geometry: Polygon
+      minimum_count: 0
+      minimum_unique_vertices: 3
+      ring_must_be_closed: true
+    keepout_zone:
+      geometry: Polygon
+      minimum_count: 0
+      minimum_unique_vertices: 3
+      ring_must_be_closed: true
+
+coverage:
+  required_members:
+    - schema_version
+    - map_id
+    - frame_id
+    - base_map
+    - base_map_sha256
+    - robot_profile
+    - planning_mode
+    - robot_width
+    - operation_width
+    - min_turning_radius
+    - headland_width
+    - allow_reverse
+    - preferred_swath_angle
+  planning_mode_values: [polygon, annotated_rows]
+  sha256_pattern: "^[0-9a-f]{64}$"
+  constraints:
+    robot_width: {exclusive_minimum: 0.0, source: platform_profile}
+    operation_width: {exclusive_minimum: 0.0}
+    min_turning_radius: {minimum: 0.0, source: platform_profile}
+    headland_width: {minimum: 0.0}
+
+load_policy:
+  recognized_schema_versions: ["1.0"]
+  hash_mismatch_mode: read_only
+  planning_allowed_on_hash_mismatch: false
+  planning_allowed_on_validation_error: false
+
+geometry_validation:
+  engine: shapely
+  polygon_self_intersection: error
+  exclusion_must_be_inside_field: true
+  entry_must_be_inside_field: true
+  entry_must_be_outside_exclusion: true
+  all_coordinates_must_be_inside_base_map: true
+  entry_navigation_footprint_must_fit: true
+  minimum_boundary_clearance:
+    default: 0.0
+    minimum: 0.0
+    units: meters
+    source: semantic_editor_config
+
+ros_server_contract:
+  node_name: agt_semantic_map_server
+  qos: {reliability: reliable, durability: transient_local, depth: 1}
+  topics:
+    semantic_markers:
+      name: /agt/map/semantic_markers
+      type: visualization_msgs/msg/MarkerArray
+    keepout_mask:
+      name: /agt/map/keepout_mask
+      type: nav_msgs/msg/OccupancyGrid
+      task_06_mode: semantic_keepout
+    semantic_status:
+      name: /agt/map/semantic_status
+      type: diagnostic_msgs/msg/DiagnosticArray
+  services:
+    load: {name: /agt/map/semantic/load, type: nav2_msgs/srv/LoadMap}
+    reload: {name: /agt/map/semantic/reload, type: std_srvs/srv/Trigger}
+    validate: {name: /agt/map/semantic/validate, type: std_srvs/srv/Trigger}
+  transactional_load: true
+  failed_load_preserves_active_products: true
+  keepout_rasterization:
+    feature_types: [exclusion_zone, keepout_zone]
+    outside_field_is_keepout_default: true
+    free_value_default: 0
+    occupied_value_default: 100
+    preserve_base_map_metadata: true
+    maximum_boundary_error_cells: 1

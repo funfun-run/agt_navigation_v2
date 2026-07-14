@@ -1,0 +1,11 @@
+semantic_editor:
+  # Vehicle geometry is loaded from the selected platform profile, never here.
+  robot_profile: bunker
+  planning_mode: polygon
+  operation_width: 0.60
+  headland_width: 1.50
+  allow_reverse: true
+  preferred_swath_angle: 0.0
+  # Applied after the profile's navigation footprint; keep zero unless explicitly required.
+  minimum_boundary_clearance: 0.0
+  history_limit: 100

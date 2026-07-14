@@ -1,0 +1,13 @@
+schema_version: "1.0"
+map_id: example_semantic
+frame_id: map
+base_map: ../example_map.yaml
+base_map_sha256: "528e2f16200754b9649fdbeab1092e1faa8ce279bde4b2d3e1eb5e2b815737e6"
+robot_profile: bunker
+planning_mode: annotated_rows
+robot_width: 0.938
+operation_width: 0.60
+min_turning_radius: 0.0
+headland_width: 1.50
+allow_reverse: true
+preferred_swath_angle: 0.0

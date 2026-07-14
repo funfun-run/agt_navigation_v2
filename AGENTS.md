@@ -23,7 +23,7 @@
 - The versioned contract is `docs/interfaces/semantic_map_schema.md` plus `src/agt_ui_bridge/config/semantic_schema.yaml`.
 - Keep semantic GeoJSON separate from the base OccupancyGrid; never write semantic zones into the source PGM.
 - Versioned examples live under `docs/interfaces/examples/`; runtime semantic files live under `runtime/maps/<map_id>/semantic/` and are not committed.
-- Schema contract completion does not imply that Qt annotation, KeepoutFilter, Fields2Cover, path repair, or coverage execution is implemented.
+- Schema contract completion does not imply that coverage path validation, path repair, or coverage execution is implemented.
 - Project-owned semantic data classes and file I/O under `agt_ui_bridge` are data-contract code, not third-party semantic algorithm migration.
 - Keep map transforms and semantic file logic free of Qt and ROS dependencies so they remain independently testable.
 - The semantic editor treats the base PGM/YAML as read-only and writes only versioned GeoJSON plus `coverage.yaml`.
@@ -32,7 +32,21 @@
 - Footprint feasibility consumes `navigation_footprint` from the selected platform profile. Any extra boundary clearance must be explicit and defaults to zero.
 - The semantic map server uses standard ROS messages/services and transactional candidate loading; a failed load must not replace or clear the last valid products.
 - TASK-06 keepout masks rasterize enabled exclusion/keepout zones and configurable field exterior without modifying the base map.
-- Keepout masks must preserve the base OccupancyGrid metadata exactly. Do not connect them to Nav2 before TASK-07.
+- Keepout masks must preserve the base OccupancyGrid metadata exactly.
+- TASK-07 connects only `/agt/map/keepout_mask` to the global Nav2 costmap through a type-0 FilterInfo server.
+- Keep global costmap ordering as `StaticLayer -> KeepoutFilter -> InflationLayer`; do not add the semantic mask to the local obstacle chain.
+- Keepout costs are reversible filter state. Never write them into `/agt/map/global_occupancy` or the source PGM.
+- Humble KeepoutFilter is fail-open before FilterInfo/mask arrives; motion procedures must verify semantic status `LOADED` instead of treating node liveness as readiness.
+
+## Coverage Dependency Contract
+- ROS 2 Humble coverage dependencies are locked by full commit SHA in `nav_dependencies.repos`.
+- `opennav_coverage` uses the `humble-v2` line and Fields2Cover uses `v2.0.0`; do not mix the ordinary Humble/F2C 1.2.1 line with this contract.
+- Keep coverage algorithm sources in an external vcs workspace. Do not vendor them into `agt_coverage_planning`.
+- Build Fields2Cover with `USE_ORTOOLS_VENDOR=ON` and the pinned `FETCHCONTENT_SOURCE_DIR_*` inputs documented in `docs/development/coverage_dependencies.md`; no build-time network fallback or hidden old-workspace overlay is allowed.
+- TASK-09 depends on Coverage Server and `ComputeCoveragePath`, but not on Coverage Navigator, BT plugins, or demos.
+- Coverage requests must pass complete semantic validation and canonical platform-profile snapshot checks before changing server parameters or sending a goal.
+- Humble annotated-row requests use process-private generated GML because Row Coverage Server has no in-message row input; never write generated GML into semantic source files.
+- `/agt/coverage/path_raw` is not executable until TASK-10 validates costmap footprint collisions, interpolation and curvature.
 
 ## Phase 1 Allowed Work
 - Create repository directories and ROS 2 package skeletons.

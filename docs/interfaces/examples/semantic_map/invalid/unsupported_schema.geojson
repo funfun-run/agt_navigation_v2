@@ -1,0 +1,12 @@
+{
+  "type": "FeatureCollection",
+  "schema_version": "2.0",
+  "map_id": "invalid_schema",
+  "frame_id": "map",
+  "features": [
+    {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [5, 0], [5, 5], [0, 0]]]}, "properties": {"id": "field_01", "feature_type": "field_boundary", "name": "Field", "enabled": true, "frame_id": "map"}},
+    {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[1, 1], [2, 1], [2, 2], [1, 1]]]}, "properties": {"id": "exclusion_01", "feature_type": "exclusion_zone", "name": "Obstacle", "enabled": true, "frame_id": "map"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [0.5, 0.5]}, "properties": {"id": "entry_01", "feature_type": "entry_pose", "name": "Entry", "enabled": true, "frame_id": "map", "yaw": 0.0}},
+    {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[0, 0], [1, 0]]}, "properties": {"id": "direction_01", "feature_type": "work_direction", "name": "Direction", "enabled": true, "frame_id": "map"}}
+  ]
+}

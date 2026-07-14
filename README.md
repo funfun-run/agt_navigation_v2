@@ -20,9 +20,9 @@
 | Phase 5：地图处理 | baseline 可用 | OctoMap 动态射线原点、二维 OccupancyGrid 和 PGM/YAML 保存通过短回放 | 完整 bag 调整高度阈值，确认最终导航地图 |
 | Phase 6：Nav2 与安全链 | 离线 baseline 完成 | Smac2D、MPPI、BT、costmap、Collision Monitor、Qt action、BUNKER 安全链完成闭环目标测试 | 用真实地图/定位调参；完成障碍、CAN 与制动验收 |
 | Phase 7：实验与评测 | 尚未实现 | package 和 runtime 目录边界已建立 | 实现配置快照、数据记录、指标计算和报告生成 |
-| Phase 8：Qt5 与覆盖规划 | 部分完成 | Qt5 GUI 编译、地图接口、Nav2 action 桥接、ROS 图和干净退出验证通过 | 实机手动控制与 Fields2Cover |
+| Phase 8：Qt5 与覆盖规划 | TASK-00~09 完成 | 语义/Keepout 闭环、依赖构建及 polygon/rows 真实规划通过 | TASK-10 实现 Coverage Path Validator |
 
-当前离线回归结果：`46 passed`；BUNKER 无 CAN 运行测试已验证默认禁用、手动优先、
+当前离线回归结果：`118 passed`；BUNKER 无 CAN 运行测试已验证默认禁用、手动优先、
 履带速度投影、输入超时归零、急停锁存和复位后保持禁用。
 
 ## MID360 外参填写
@@ -65,6 +65,59 @@ ros2 launch agt_description description.launch.py \
 - TF 发布责任固定：全局定位发布 `map -> odom`，连续里程计发布
   `odom -> base_footprint`，机器人描述发布 `base_footprint -> sensor`。
 
+### 车辆几何单一数据源
+
+车辆外形与导航 footprint 统一以 `profiles/platforms/<platform>.yaml` 为真源。当前 BUNKER
+导航 footprint 为车辆外形四周增加 80 mm 安全裕量；Nav2 局部/全局 costmap 和 perception
+车体点云裁剪由 `tests/test_vehicle_geometry_contracts.py` 检查是否与 profile 一致。后续覆盖
+路径 Validator 必须读取所选平台 profile，不得在 coverage 配置中复制 footprint 或再次叠加
+另一套安全裕量。
+
+### 语义地图合同
+
+农业语义对象独立保存为 GeoJSON 与 `coverage.yaml`，统一使用 `map` frame、米制坐标和 ROS
+右手坐标系，不写入基础 PGM。1.0 格式、Feature 类型、哈希规则和错误策略见
+[`docs/interfaces/semantic_map_schema.md`](docs/interfaces/semantic_map_schema.md)，版本化合法/非法
+样例位于 `docs/interfaces/examples/semantic_map/`。实际任务文件写入
+`runtime/maps/<map_id>/semantic/`，默认不提交 Git。
+
+TASK-02 已提供无 Qt/ROS 依赖的 `agt_ui_bridge` Python 基础库，统一处理 PGM Y 翻转、非零
+origin 与 yaw、GeoJSON/YAML 重载、SHA256 只读降级、原子写入和 scene undo/redo。TASK-03
+已新增独立 Qt5 语义编辑器，支持对象绘制、顶点编辑、图层、保存重载和未保存退出提示。
+TASK-04 使用 Shapely 检查多边形自交、区域包含、地图范围、入口约束、边界净距及入口
+navigation footprint 可行性；错误会关联对象 ID、高亮并阻止保存。TASK-05 已新增事务式
+语义地图服务器、标准 markers/mask/status 和 load/reload/validate 服务。TASK-06 已将 enabled
+exclusion/keepout 及默认 field 外部栅格化到严格对齐的 OccupancyGrid。TASK-07 已接入 Nav2
+FilterInfo 与 global KeepoutFilter，并在 keepout 后执行 inflation。
+TASK-08 已将 Humble `opennav_coverage humble-v2`、Fields2Cover `v2.0.0` 及其传递源码固定到
+完整 commit，并在不 source 旧工作区的纯净工作区完成 rosdep、4 个目标包构建和 action 核验。
+TASK-09 已实现 semantic/profile 到 `ComputeCoveragePath` 的 polygon 与 annotated rows 适配；
+真实服务器分别生成 174/161 个 `map` frame 姿态，孔洞和 orientation 检查通过。原始路径仍须
+经过 TASK-10 Validator 后才能进入执行链，接口见
+[`docs/interfaces/coverage_planning.md`](docs/interfaces/coverage_planning.md)。
+
+```bash
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 launch agt_ui_bridge semantic_editor.launch.py \
+  map:=runtime/maps/greenhouse_01/greenhouse_01.yaml \
+  platform_profile:=profiles/platforms/bunker.yaml
+```
+
+语义导航默认不启用，以保持原导航兼容。完成编辑并启动语义服务器后，使用：
+
+```bash
+ros2 launch agt_navigation navigation.launch.py \
+  map:=runtime/maps/greenhouse_01/greenhouse_01.yaml \
+  use_keepout_filter:=true
+```
+
+Humble 在 mask 缺失时会 fail-open；运动前必须确认 `/agt/map/semantic_status` 为 `LOADED`。
+完整启动、检查和运行时启停命令见 [`src/agt_navigation/README.md`](src/agt_navigation/README.md)。
+
+语义结果建议保存到 `runtime/maps/<map_id>/semantic/`。详细操作和重载命令见
+[`src/agt_ui_bridge/README.md`](src/agt_ui_bridge/README.md)。
+
 ## 顶层目录
 ```text
 agt_navigation_v2/
@@ -79,6 +132,10 @@ agt_navigation_v2/
 ├── nav_dependencies.repos
 └── README.md
 ```
+
+覆盖规划外部依赖由 [`nav_dependencies.repos`](nav_dependencies.repos) 固定到 commit，必须在
+独立工作区导入和构建。TASK-08 的系统依赖、`vcs import`、rosdep、最小构建及版本核验流程见
+[`docs/development/coverage_dependencies.md`](docs/development/coverage_dependencies.md)。
 
 ## 核心功能包
 - `agt_interfaces`
@@ -102,7 +159,7 @@ agt_navigation_v2/
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/yangxuan/ros2_ws/install/setup.bash
+source /path/to/agt_coverage_ws/install/setup.bash
 colcon build --symlink-install --allow-overriding fast_livo relocalization_core
 source install/setup.bash
 colcon test
@@ -110,6 +167,7 @@ colcon test-result --verbose
 python3 -m pytest -q \
   tests \
   src/agt_description/test \
+  src/agt_coverage_planning/test \
   src/agt_mapping/test \
   src/agt_map_processing/test \
   src/agt_ui_bridge/test
@@ -117,7 +175,9 @@ python3 -m pytest -q \
 
 当前离线测试覆盖 package 命名、launch 语法、TF 拓扑、外参配置唯一性、FAST-LIVO2
 位姿与速度外参换算、地图保存、Qt5 配置、Nav2 接口，以及 BUNKER 履带限速、急停和
-上游补丁契约。当前完整命令结果为 `46 passed`。离线测试通过不代表算法精度或实车安全验收通过。
+上游补丁契约、车辆几何单一数据源、语义地图基础库、Qt5 编辑器和覆盖请求适配。当前完整命令结果为
+`118 passed`。
+离线测试通过不代表算法精度或实车安全验收通过。
 
 Nav2 无车闭环测试：
 
@@ -147,11 +207,11 @@ ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
 | `agt_localization` | ICP/NDT core、局部点云输入、外参修正和 `map -> odom` 已落地并编译 | 需要与栅格图同源的全局 PCD，测试成功率、误差、恢复时间和错误初值拒绝 |
 | `agt_localization_fusion` | package 边界已建立 | 需要 LIO、轮速、IMU，后续 RTK/UWB 数据；测试延迟、漂移、跳变和传感器失效降级 |
 | `agt_perception` | base frame 高度/量程/车体裁剪障碍点云 baseline 已编译 | 需要标注或典型场景点云，测试地面/障碍精度、误检漏检和处理频率 |
-| `agt_navigation` | Nav2 核心、局部/全局 costmap、碰撞监控、Qt action 和运动学闭环已通过 | 用真实地图/定位测试规划成功率、跟踪误差、恢复行为和窄通道通过性 |
-| `agt_coverage_planning` | package 边界已建立 | 需要地块边界和障碍数据，测试覆盖率、重复率、转弯次数及路径可执行性 |
+| `agt_navigation` | Nav2 核心、运动学闭环和 TASK-07 global KeepoutFilter 阻断/恢复规划已通过 | 用真实地图/定位测试语义边界、规划成功率、跟踪误差和窄通道通过性 |
+| `agt_coverage_planning` | TASK-09 完成：polygon/annotated rows 请求、双 lifecycle server、标准输出与失败诊断已真实验证 | TASK-10 实现 costmap footprint、插值碰撞和曲率 Validator |
 | `agt_safety` | BUNKER 履带仲裁、急停锁存、限速、超时和合成消息测试已完成 | 架空履带后做低速实车制动距离、急停和进程/通信中断测试 |
 | `agt_chassis` | 官方 bunker_ros2、状态桥接、TF 隔离和双层命令 watchdog 已落地并编译 | 需要 BUNKER CAN 实机验证协议版本、轮速里程计、状态错误码和断连归零 |
-| `agt_ui_bridge` | Qt5 上游版本已编译并完成地图接口、NavigateToPose 桥接和干净退出测试 | 用实机验证目标下发和手动速度链 |
+| `agt_ui_bridge` | TASK-07 完成；语义 mask 已由 Nav2 消费且切换/禁用不写回基础地图 | 用真实地图验证服务器异常、语义切换和操作门禁 |
 | `agt_experiment_manager` | profile 骨架已建立 | 实现后测试配置合并、Git/参数快照、产物命名、失败恢复和复现实验 |
 | `agt_evaluation` | package 边界已建立 | 指标实现后用合成轨迹单测；有 bag/真值后生成定位、导航、资源占用报告 |
 
@@ -165,6 +225,77 @@ ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
 Phase 3 有数据后的最低验收项：新旧注册点云数量和时间戳一致，转换后的
 `/agt/mapping/odometry` 连续，`odom -> base_footprint` 只有一个发布源，轨迹相对旧链无
 非预期跳变，并保存对比报告到 `runtime/results/`。
+
+### CAN 与 BUNKER 通讯测试
+
+该测试只启动 CAN、BUNKER 官方驱动、状态桥接和安全层，不启动 MID360、FAST-LIVO2、
+Nav2 或 Qt5。首次测试应架空两侧履带，准备好实体遥控器和硬件急停，并保持软件运动默认
+禁用；确认通讯不需要调用 `/agt/safety/set_motion_enabled`。
+
+> **当前硬件风险记录：** 现用 CAN 模块连接笔记本电脑时，车辆移动和线缆晃动可能造成
+> 接头松动或瞬时断连，因此该组合仅用于静态和架空低速联调。有条件时应更换带可靠固定、
+> 应力释放或锁紧接头的 CAN 模块，并改为与车载工控机固定连接后再进行连续移动测试。
+> 若移动后出现 `candump` 断流、ROS 状态话题停止、`connected` 变为 `false`、CAN 错误计数
+> 增长或接口进入 `BUS-OFF`，应先检查模块、USB/CAN 接头和线缆固定，不要直接归因于驱动。
+
+以下命令均在仓库根目录执行。终端 1 配置 SocketCAN；`CAN_IFACE` 默认使用 `can0`，实际
+接口不同可在第一行修改：
+
+CAN 接口配置需要宿主机 root/`CAP_NET_ADMIN` 权限，不能在 Codex、浏览器沙箱或启用了
+`no-new-privileges` 的容器终端中执行。先在系统原生终端检查 `NoNewPrivs`，结果必须为 `0`；
+若为 `1`，请关闭该受限终端，通过桌面应用菜单或 `Ctrl+Alt+T` 打开新的宿主机终端：
+
+```bash
+grep NoNewPrivs /proc/$$/status
+CAN_IFACE=${CAN_IFACE:-can0}
+
+sudo modprobe gs_usb
+sudo ip link set "$CAN_IFACE" down 2>/dev/null || true
+sudo ip link set "$CAN_IFACE" up type can bitrate 500000
+ip -details -statistics link show "$CAN_IFACE"
+timeout 5 candump "$CAN_IFACE"
+```
+
+`ip` 输出应显示接口为 `UP`、CAN 状态为 `ERROR-ACTIVE`、bitrate 为 `500000`；BUNKER 上电后
+`candump` 应持续出现 CAN 帧。若没有 `candump` 命令，先安装 `can-utils`。保持车辆上电，
+然后在终端 1 启动底盘通讯节点：
+
+```bash
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+CAN_IFACE=${CAN_IFACE:-can0}
+
+ros2 launch agt_chassis bunker.launch.py \
+  can_interface:="$CAN_IFACE"
+```
+
+驱动日志应显示检测到 `AGX_V1` 或 `AGX_V2`，随后显示正在通过 CAN 与机器人通讯。终端 2
+检查 ROS 接口；`timeout` 到时退出属于正常现象：
+
+```bash
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+
+timeout 5 ros2 topic echo /agt/chassis/connected --once
+timeout 5 ros2 topic echo /agt/chassis/status --once
+timeout 5 ros2 topic hz /agt/chassis/status/raw
+timeout 5 ros2 topic hz /agt/chassis/odometry
+timeout 5 ros2 topic echo /agt/chassis/rc_state --once
+```
+
+通讯正常的最低判据：
+
+- `/agt/chassis/connected` 返回 `data: true`。
+- `/agt/chassis/status` 的 `level` 为 `0`、`message` 为 `connected`。
+- `/agt/chassis/status/raw` 和 `/agt/chassis/odometry` 持续更新。
+- 操作实体遥控器时 `/agt/chassis/rc_state` 有响应；架空履带低速转动时 odometry 速度变化。
+- 对实际 CAN 接口再次执行 `ip -details -statistics link show "$CAN_IFACE"` 时没有进入
+  `BUS-OFF`，错误计数不持续增长。
+
+这里只验证通讯和反馈，不测试 ROS 软件控车。检查完成后将遥控器切回停止位置，并在驱动终端
+使用 `Ctrl+C` 正常退出。若 `candump` 无数据、`connected` 为 `false`、驱动无法识别协议或
+`bunker_base_node` 退出，应停止测试并优先检查底盘供电、CAN-H/CAN-L、终端电阻、bitrate、
+USB-CAN 驱动和接口名，不要使能运动。
 
 ### 外参标定 Bag 采集
 

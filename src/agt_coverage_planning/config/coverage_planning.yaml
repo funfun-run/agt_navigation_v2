@@ -1,0 +1,24 @@
+coverage_request_adapter:
+  ros__parameters:
+    use_sim_time: false
+    semantic_map: ""
+    platform_profile: ""
+    plan_on_start: false
+    polygon_action_name: /agt/coverage/polygon/compute_coverage_path
+    row_action_name: /agt/coverage/rows/compute_coverage_path
+    polygon_server_node: /agt/coverage/polygon/coverage_server
+    row_server_node: /agt/coverage/rows/row_coverage_server
+
+coverage_server:
+  ros__parameters:
+    use_sim_time: false
+    coordinates_in_cartesian_frame: true
+    default_allow_overlap: false
+    default_turn_point_distance: 0.10
+
+row_coverage_server:
+  ros__parameters:
+    use_sim_time: false
+    coordinates_in_cartesian_frame: true
+    order_ids: true
+    default_turn_point_distance: 0.10

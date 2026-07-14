@@ -42,6 +42,57 @@ def test_costmap_and_collision_monitor_share_obstacle_cloud():
     assert "amcl" not in config
 
 
+def test_global_costmap_applies_keepout_before_inflation():
+    config = load_navigation_config()
+    global_costmap = config["global_costmap"]["global_costmap"]["ros__parameters"]
+    assert global_costmap["plugins"] == ["static_layer"]
+    assert global_costmap["filters"] == [
+        "keepout_filter",
+        "keepout_inflation_layer",
+    ]
+    assert global_costmap["keepout_filter"] == {
+        "plugin": "nav2_costmap_2d::KeepoutFilter",
+        "enabled": True,
+        "filter_info_topic": "/agt/map/keepout_filter_info",
+        "transform_tolerance": 0.25,
+    }
+    assert global_costmap["keepout_inflation_layer"]["plugin"] == (
+        "nav2_costmap_2d::InflationLayer"
+    )
+    assert global_costmap["keepout_inflation_layer"]["inflation_radius"] == 0.75
+
+
+def test_keepout_info_server_uses_separate_transient_semantic_mask():
+    config = load_navigation_config()
+    info = config["costmap_filter_info_server"]["ros__parameters"]
+    assert info == {
+        "use_sim_time": False,
+        "type": 0,
+        "filter_info_topic": "/agt/map/keepout_filter_info",
+        "mask_topic": "/agt/map/keepout_mask",
+        "base": 0.0,
+        "multiplier": 1.0,
+    }
+    assert config["map_server"]["ros__parameters"]["topic_name"] == (
+        "/agt/map/global_occupancy"
+    )
+    assert info["mask_topic"] != config["map_server"]["ros__parameters"]["topic_name"]
+
+
+def test_keepout_info_server_is_explicitly_opt_in_and_lifecycle_managed():
+    launch_path = ROOT / "src/agt_navigation/launch/navigation.launch.py"
+    launch = launch_path.read_text(encoding="utf-8")
+    ast.parse(launch)
+    assert '"use_keepout_filter"' in launch
+    assert 'default_value="false"' in launch
+    assert 'executable="costmap_filter_info_server"' in launch
+    assert 'name="lifecycle_manager_keepout_filter"' in launch
+    assert '{"node_names": ["costmap_filter_info_server"]}' in launch
+    assert launch.count(
+        'condition=IfCondition(LaunchConfiguration("use_keepout_filter"))'
+    ) == 2
+
+
 def test_offline_map_and_navigation_launch_are_self_contained():
     map_yaml = yaml.safe_load(
         (ROOT / "src/agt_navigation/maps/offline_test.yaml").read_text()
