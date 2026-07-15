@@ -114,6 +114,51 @@ def test_base_map_is_read_only_and_vehicle_width_comes_from_profile(window):
     assert window.model_scene.features == []
 
 
+def test_wheel_zoom_can_recover_from_a_tiny_prefit_scale(window):
+    window.view.resetTransform()
+    window.view.scale(0.001, 0.001)
+    before = window.view.transform().m11()
+
+    assert window.view.zoom_by_wheel_delta(120)
+    assert window.view.transform().m11() > before
+    assert window.view.zoom_by_wheel_delta(-120)
+    assert window.view.transform().m11() == pytest.approx(before)
+
+
+def test_first_show_refits_map_to_final_viewport(window, application):
+    scale_before_show = window.view.transform().m11()
+
+    window.show()
+    application.processEvents()
+
+    assert window.view.transform().m11() > scale_before_show
+
+
+def test_new_empty_task_shows_onboarding_instead_of_four_errors(window):
+    messages = [
+        window.validation_list.item(index).text()
+        for index in range(window.validation_list.count())
+    ]
+
+    assert messages == [
+        "开始标注 · 请依次绘制作业区、内部障碍、入口位姿和作业方向"
+    ]
+    assert not any(message.startswith("ERROR") for message in messages)
+
+
+def test_incomplete_task_shows_required_features_as_pending(window):
+    window.add_feature(_required_features()[0])
+    messages = [
+        window.validation_list.item(index).text()
+        for index in range(window.validation_list.count())
+    ]
+
+    assert "待绘制 · 内部障碍（保存前必需）" in messages
+    assert "待绘制 · 入口位姿（保存前必需）" in messages
+    assert "待绘制 · 作业方向（保存前必需）" in messages
+    assert not any("missing_feature_type" in message for message in messages)
+
+
 def test_features_and_layers_are_rendered_independently(window):
     _populate_required_features(window)
     assert set(window._feature_items) == {
@@ -138,6 +183,23 @@ def test_features_and_layers_are_rendered_independently(window):
         for item in window.graphics_scene.items()
     )
     window._layer_checks["exclusion_zone"].setChecked(True)
+
+
+def test_semantic_lines_use_high_contrast_colors_and_halos(window):
+    _populate_required_features(window)
+
+    for item in window._feature_items.values():
+        assert isinstance(item, EDITOR.ContrastPathItem)
+        assert item.pen().widthF() == pytest.approx(3.2)
+        assert item.pen().color().lightness() < 160
+
+    window.tool = "work_direction"
+    window.graphics_scene.draw_points = [QPointF(1.0, 1.0), QPointF(8.0, 1.0)]
+    window.graphics_scene._update_preview()
+    preview = window.graphics_scene.preview_item
+    assert isinstance(preview, EDITOR.ContrastPathItem)
+    assert preview.pen().color() == EDITOR.FEATURE_COLORS["work_direction"]
+    assert preview.pen().widthF() == pytest.approx(3.0)
 
 
 def test_scene_clicks_create_required_map_frame_geometry(window):

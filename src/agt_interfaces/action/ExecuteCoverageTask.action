@@ -1,0 +1,18 @@
+string semantic_map_uri
+string field_id
+string planning_mode
+string controller_id
+bool allow_repair
+---
+bool success
+uint16 error_code
+string message
+float64 coverage_rate
+float64 overlap_rate
+float64 executed_length
+uint32 repaired_segment_count
+---
+string current_stage
+uint32 current_swath_index
+uint32 total_swaths
+float64 distance_remaining

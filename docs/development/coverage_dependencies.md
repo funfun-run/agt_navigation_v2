@@ -102,6 +102,10 @@ ros2 pkg executables opennav_row_coverage
 ros2 interface show opennav_coverage_msgs/action/ComputeCoveragePath
 ```
 
+离线预览至少要求上述三个 `ros2 pkg prefix` 命令全部成功。仅能找到
+`opennav_coverage_msgs` 表示工作区只生成了接口，不能运行 Coverage Server；此时
+`coverage_preview.launch.py` 尚不能生成路线，必须继续完成本节的 `--packages-up-to` 构建。
+
 Fields2Cover 是普通 CMake/colcon 包，不在 ament resource index 中，因此不能用
 `ros2 pkg prefix fields2cover` 判断安装结果。构建时 colcon 会把 Fields2Cover 专用参数也传给
 其他包；其他包报告 `Manually-specified variables were not used` 属于可忽略警告。

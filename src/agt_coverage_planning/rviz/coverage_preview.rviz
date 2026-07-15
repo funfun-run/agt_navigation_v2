@@ -1,0 +1,157 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 1
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Draw Behind: true
+      Enabled: true
+      Name: Base Map
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /agt/map/global_occupancy
+      Value: true
+    - Alpha: 0.35
+      Class: rviz_default_plugins/Map
+      Color Scheme: costmap
+      Draw Behind: false
+      Enabled: true
+      Name: Semantic Keepout
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /agt/map/keepout_mask
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 220; 45; 45
+      Enabled: true
+      Head Diameter: 0.18
+      Head Length: 0.12
+      Length: 0.18
+      Line Style: Lines
+      Line Width: 0.06
+      Name: Server Path Preview
+      Pose Style: Arrows
+      Radius: 0.03
+      Shaft Diameter: 0.06
+      Shaft Length: 0.12
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /agt/coverage/path_preview
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 0; 200; 220
+      Enabled: true
+      Line Style: Lines
+      Line Width: 0.04
+      Name: Reconstructed Path
+      Pose Style: None
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /agt/coverage/path_reconstructed
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 20; 210; 80
+      Enabled: true
+      Line Style: Lines
+      Line Width: 0.08
+      Name: Validated Path
+      Pose Style: None
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /agt/coverage/path_validated
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Swaths
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /agt/coverage/swaths
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Headland
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /agt/coverage/headland
+      Value: true
+    - Class: rviz_default_plugins/PoseArray
+      Enabled: true
+      Name: Collision Poses
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /agt/coverage/collision_poses
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Invalid Footprints
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /agt/coverage/footprint_markers
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 28; 31; 35
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: AGT Coverage Preview
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+  Views:
+    Current:
+      Angle: 0
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Top Down
+      Near Clip Distance: 0.01
+      Scale: 35
+      Target Frame: <Fixed Frame>
+      X: 32
+      Y: 6
+Window Geometry:
+  Height: 900
+  Width: 1500

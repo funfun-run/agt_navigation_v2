@@ -27,11 +27,20 @@
 - `/agt/map/keepout_mask`: 语义服务器发布、与基础地图严格对齐的 transient-local 语义 mask
 - `/agt/map/keepout_filter_info`: Nav2 Costmap Filter Info Server 发布的 transient-local keepout 元数据
 - `/agt/map/semantic_status`: 语义加载、校验和产品构建诊断
-- `/agt/coverage/path_raw`: Fields2Cover 原始覆盖路径，TASK-10 前禁止直接执行
+- `/agt/coverage/path_raw`: Fields2Cover 原始覆盖路径，永远禁止直接执行
 - `/agt/coverage/path_components`: swath 与连接段组件
+- `/agt/coverage/path_reconstructed`: 从 PathComponents 重建的扁平 Path
+- `/agt/coverage/path_semantics`: 原始 Path 全区间 SWATH/CONNECTION 分类及稳定 swath ID JSON
 - `/agt/coverage/swaths`: 覆盖 swath MarkerArray
 - `/agt/coverage/headland`: field 与 planning field MarkerArray
 - `/agt/coverage/status`: 覆盖请求、规划结果和稳定错误码诊断
+- `/agt/coverage/path_validated`: TASK-10 全部检查通过时的 Path，失败时为空
+- `/agt/coverage/collision_poses`: 插值后发生完整 footprint 碰撞的 PoseArray
+- `/agt/coverage/footprint_markers`: 无效采样 footprint 的 MarkerArray
+- `/agt/coverage/validation_report`: 含无效 component/swath ID 的稳定键序 JSON 报告
+- `/agt/coverage/path_repaired`: TASK-12 成功替换无效 CONNECTION 并最终复验后的 Path
+- `/agt/coverage/repair_report`: 修复数量、耗时、保留 swath ID 和最终验证 JSON
+- `/agt/coverage/task_status`: TASK-14 当前阶段、swath 进度和剩余距离诊断
 
 ## 语义地图服务
 - `/agt/map/semantic/load`: `nav2_msgs/srv/LoadMap`，输入 GeoJSON 路径或 `file://` URL
@@ -44,8 +53,11 @@
 - `/agt/coverage/plan`: `std_srvs/srv/Trigger`，按当前语义任务发起一次异步规划
 - polygon action：`/agt/coverage/polygon/compute_coverage_path`
 - annotated rows action：`/agt/coverage/rows/compute_coverage_path`
+- `/agt/coverage/repair`: `std_srvs/srv/Trigger`，显式修复当前无效连接段
+- `/agt/coverage/execute`: `agt_interfaces/action/ExecuteCoverageTask`，串联语义加载、规划、验证、可选修复和 Nav2 `FollowPath`
 
-转换、GML、状态和安全边界见 [`coverage_planning.md`](coverage_planning.md)。
+转换、GML、Validator、状态和安全边界见 [`coverage_planning.md`](coverage_planning.md)，统一任务
+接口字段和代码生成边界见 [`coverage_task_action.md`](coverage_task_action.md)。
 
 ## Nav2 语义过滤
 - global costmap 顺序：`StaticLayer -> KeepoutFilter -> InflationLayer`

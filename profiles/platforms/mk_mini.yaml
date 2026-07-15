@@ -17,3 +17,11 @@ platform:
       - [-0.35, 0.275]
   max_linear_velocity: 1.0
   max_angular_velocity: 1.0
+  coverage_repair:
+    enabled: false
+    planner_id: CoverageRepairHybrid
+    planner_family: hybrid_a_star
+    allow_in_place_rotation: false
+    disabled_reason: >-
+      TASK-12 requires Ackermann kinematics and a calibrated positive minimum
+      turning radius, but this provisional profile still declares differential.

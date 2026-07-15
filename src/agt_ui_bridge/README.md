@@ -130,8 +130,14 @@ ros2 launch agt_ui_bridge semantic_editor.launch.py \
 
 编辑器支持 field boundary、exclusion zone、row centerline、entry pose 和 work direction
 绘制，选择对象后可拖动顶点，提供对象图层显隐、footprint 预览、undo/redo、保存/另存、重载
-及未保存退出提示。基础 PGM/YAML 始终只读，保存结果为 `semantic_map.geojson` 与
+及未保存退出提示。地图首次显示时自动适配窗口，光标位于地图上时可使用滚轮缩放、中键拖动
+平移，也可通过“适配地图”恢复全图视野。语义线采用深色分类色和白色外描边，绘制预览、已完成
+对象及 footprint 在黑白栅格区域上均保持可见。基础 PGM/YAML 始终只读，保存结果为
+`semantic_map.geojson` 与
 `coverage.yaml`；基础地图哈希不匹配时自动降级为只读，禁止覆盖。
+
+新建空任务只显示一条绘制顺序引导；开始绘制后，尚缺的必需对象显示为“待绘制”，而不是系统
+故障。底层校验和保存门禁不变，缺项、自交、越界等问题在保存前仍会阻断。
 
 该进程仅进行本地文件编辑，不创建 ROS topic、service、action 或 TF，也没有 QoS 责任。
 结构和几何错误会显示稳定 code/object ID、高亮关联对象并阻止保存。当前检查多边形自交、

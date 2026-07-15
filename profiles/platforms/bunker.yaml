@@ -34,3 +34,8 @@ platform:
     max_linear_deceleration: 0.70
     max_angular_acceleration: 0.80
     max_angular_deceleration: 1.20
+  coverage_repair:
+    enabled: true
+    planner_id: GridBased
+    planner_family: grid_2d
+    allow_in_place_rotation: true

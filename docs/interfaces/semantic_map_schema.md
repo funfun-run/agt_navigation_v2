@@ -2,8 +2,9 @@
 
 本文定义 `agt_ui_bridge` 语义编辑器/服务器和 `agt_coverage_planning` 共同使用的数据合同。
 机器可读约束位于 `src/agt_ui_bridge/config/semantic_schema.yaml`。编辑、服务加载、Keepout
-栅格化、Nav2 KeepoutFilter 和 TASK-09 Fields2Cover 请求适配已实现；路径验证和任务执行
-尚未实现。
+栅格化、Nav2 KeepoutFilter、TASK-09 Fields2Cover 请求适配、TASK-10 路径验证、TASK-11
+SWATH/CONNECTION 分类、TASK-12 无效连接段修复、TASK-14 覆盖任务 Action 和 TASK-15 总控接入
+已实现；覆盖质量统计留待 TASK-16。
 
 ## 坐标合同
 

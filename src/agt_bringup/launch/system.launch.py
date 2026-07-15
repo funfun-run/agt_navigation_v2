@@ -3,7 +3,12 @@ import re
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, LogInfo, OpaqueFunction
+from launch.actions import (
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+    LogInfo,
+    OpaqueFunction,
+)
 from launch.conditions import LaunchConfigurationEquals
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
@@ -28,10 +33,64 @@ def validate_mode_arguments(context):
             raise RuntimeError(f"navigation mode requires {argument}:=/absolute/path")
         if not Path(value).is_file():
             raise RuntimeError(f"navigation mode {argument} file does not exist: {value}")
+
+    _validate_coverage_arguments(context)
     return []
 
 
+def _validate_coverage_arguments(context):
+    semantic_enabled = _as_bool(
+        LaunchConfiguration("start_semantic_map_server").perform(context)
+    )
+    coverage_enabled = _as_bool(
+        LaunchConfiguration("start_coverage_planning").perform(context)
+    )
+    annotation_enabled = _as_bool(
+        LaunchConfiguration("annotation_mode").perform(context)
+    )
+    if coverage_enabled and not semantic_enabled:
+        raise RuntimeError(
+            "start_coverage_planning requires start_semantic_map_server:=true"
+        )
+    if annotation_enabled and not semantic_enabled:
+        raise RuntimeError(
+            "annotation_mode requires start_semantic_map_server:=true"
+        )
+    if not semantic_enabled:
+        return
+
+    semantic_map = _required_file(context, "semantic_map")
+    coverage_params = _required_file(context, "coverage_params")
+    _required_file(context, "platform_profile")
+    expected_coverage = semantic_map.with_name("coverage.yaml")
+    if coverage_params.resolve() != expected_coverage.resolve():
+        raise RuntimeError(
+            "coverage_params must be the coverage.yaml beside semantic_map: "
+            f"{expected_coverage}"
+        )
+
+
+def _required_file(context, name):
+    value = LaunchConfiguration(name).perform(context)
+    if not value:
+        raise RuntimeError(f"semantic coverage requires {name}:=/absolute/path")
+    path = Path(value).expanduser()
+    if not path.is_file():
+        raise RuntimeError(f"semantic coverage {name} file does not exist: {value}")
+    return path
+
+
+def _as_bool(value):
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "1", "yes", "on"}:
+        return True
+    if normalized in {"false", "0", "no", "off"}:
+        return False
+    raise RuntimeError(f"invalid boolean launch value: {value}")
+
+
 def generate_launch_description():
+    repository_root = Path(get_package_share_directory("agt_bringup")).parents[3]
     common = {
         "runtime_dir": LaunchConfiguration("runtime_dir"),
         "use_sim_time": LaunchConfiguration("use_sim_time"),
@@ -41,10 +100,17 @@ def generate_launch_description():
     }
     return LaunchDescription(
         [
-            DeclareLaunchArgument("mode", default_value="mapping", choices=["mapping", "navigation"]),
+            DeclareLaunchArgument(
+                "mode",
+                default_value="mapping",
+                choices=["mapping", "navigation"],
+            ),
             DeclareLaunchArgument(
                 "runtime_dir",
-                default_value=str(Path(get_package_share_directory("agt_bringup")).parents[3] / "runtime"),
+                default_value=str(
+                    Path(get_package_share_directory("agt_bringup")).parents[3]
+                    / "runtime"
+                ),
             ),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("start_sensor", default_value="true"),
@@ -64,6 +130,15 @@ def generate_launch_description():
             DeclareLaunchArgument("map", default_value=""),
             DeclareLaunchArgument("global_map_pcd", default_value=""),
             DeclareLaunchArgument("backend", default_value="ndt"),
+            DeclareLaunchArgument("start_semantic_map_server", default_value="false"),
+            DeclareLaunchArgument("start_coverage_planning", default_value="false"),
+            DeclareLaunchArgument("semantic_map", default_value=""),
+            DeclareLaunchArgument("coverage_params", default_value=""),
+            DeclareLaunchArgument("annotation_mode", default_value="false"),
+            DeclareLaunchArgument(
+                "platform_profile",
+                default_value=str(repository_root / "profiles/platforms/bunker.yaml"),
+            ),
             OpaqueFunction(function=validate_mode_arguments),
             LogInfo(msg=["AGT system mode: ", LaunchConfiguration("mode")]),
             IncludeLaunchDescription(
@@ -83,6 +158,16 @@ def generate_launch_description():
                     "global_map_pcd": LaunchConfiguration("global_map_pcd"),
                     "backend": LaunchConfiguration("backend"),
                     "start_gui": LaunchConfiguration("start_gui"),
+                    "start_semantic_map_server": LaunchConfiguration(
+                        "start_semantic_map_server"
+                    ),
+                    "start_coverage_planning": LaunchConfiguration(
+                        "start_coverage_planning"
+                    ),
+                    "semantic_map": LaunchConfiguration("semantic_map"),
+                    "coverage_params": LaunchConfiguration("coverage_params"),
+                    "annotation_mode": LaunchConfiguration("annotation_mode"),
+                    "platform_profile": LaunchConfiguration("platform_profile"),
                 }.items(),
                 condition=LaunchConfigurationEquals("mode", "navigation"),
             ),

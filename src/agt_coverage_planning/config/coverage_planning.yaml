@@ -3,11 +3,68 @@ coverage_request_adapter:
     use_sim_time: false
     semantic_map: ""
     platform_profile: ""
+    expected_field_id: ""
+    expected_planning_mode: ""
     plan_on_start: false
+    semantic_swath_sample_step: 0.10
+    semantic_absolute_length_tolerance: 0.05
+    semantic_relative_length_tolerance: 0.005
     polygon_action_name: /agt/coverage/polygon/compute_coverage_path
     row_action_name: /agt/coverage/rows/compute_coverage_path
     polygon_server_node: /agt/coverage/polygon/coverage_server
     row_server_node: /agt/coverage/rows/row_coverage_server
+
+coverage_path_validator:
+  ros__parameters:
+    use_sim_time: false
+    platform_profile: ""
+    path_topic: /agt/coverage/path_raw
+    semantics_topic: /agt/coverage/path_semantics
+    costmap_topic: /global_costmap/costmap
+    footprint_topic: /global_costmap/published_footprint
+    validation_frequency: 2.0
+    occupied_cost_threshold: 65
+    unknown_space_policy: collision
+    outside_costmap_is_collision: true
+    published_footprint_tolerance: 0.03
+    maximum_sample_count: 200000
+    maximum_visualized_footprints: 500
+
+coverage_path_repair:
+  ros__parameters:
+    use_sim_time: false
+    platform_profile: ""
+    planner_action: /compute_path_to_pose
+    path_topic: /agt/coverage/path_reconstructed
+    semantics_topic: /agt/coverage/path_semantics
+    validation_report_topic: /agt/coverage/validation_report
+    costmap_topic: /global_costmap/costmap
+    footprint_topic: /global_costmap/published_footprint
+    semantic_status_topic: /agt/map/semantic_status
+    keepout_mask_topic: /agt/map/keepout_mask
+    occupied_cost_threshold: 65
+    unknown_space_policy: collision
+    outside_costmap_is_collision: true
+    published_footprint_tolerance: 0.03
+    repair_endpoint_tolerance: 0.25
+    maximum_sample_count: 200000
+
+coverage_task_server:
+  ros__parameters:
+    use_sim_time: false
+    action_name: /agt/coverage/execute
+    semantic_load_service: /agt/map/semantic/load
+    adapter_parameter_service: /coverage_request_adapter/set_parameters_atomically
+    plan_service: /agt/coverage/plan
+    repair_service: /agt/coverage/repair
+    follow_path_action: /follow_path
+    execution_enabled: false
+    service_timeout: 5.0
+    stage_timeout: 120.0
+    execution_timeout: 0.0
+    safety_status_name: agt_safety/tracked_controller
+    safety_status_timeout: 1.0
+    poll_period: 0.02
 
 coverage_server:
   ros__parameters:

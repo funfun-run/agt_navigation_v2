@@ -10,7 +10,7 @@ import re
 import sys
 
 from PIL import Image, ImageOps
-from PyQt5.QtCore import QPoint, QPointF, Qt
+from PyQt5.QtCore import QPoint, QPointF, QTimer, Qt
 from PyQt5.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PyQt5.QtWidgets import (
     QAction,
@@ -70,13 +70,13 @@ FEATURE_LABELS = {
     "keepout_zone": "禁行区",
 }
 FEATURE_COLORS = {
-    "field_boundary": QColor("#2f9f72"),
-    "exclusion_zone": QColor("#d85c41"),
-    "row_centerline": QColor("#e5bd55"),
-    "entry_pose": QColor("#3f83d5"),
-    "work_direction": QColor("#36a9b5"),
-    "headland_zone": QColor("#d28a3f"),
-    "keepout_zone": QColor("#b94a62"),
+    "field_boundary": QColor("#007a3d"),
+    "exclusion_zone": QColor("#d00000"),
+    "row_centerline": QColor("#8a5800"),
+    "entry_pose": QColor("#0057d9"),
+    "work_direction": QColor("#007c83"),
+    "headland_zone": QColor("#a44800"),
+    "keepout_zone": QColor("#a00050"),
 }
 DRAW_TO_FEATURE = {
     "field_boundary": "field_boundary",
@@ -121,6 +121,9 @@ class EditorDefaults:
 
 
 class SemanticGraphicsView(QGraphicsView):
+    MIN_SCALE = 0.0001
+    MAX_SCALE = 100.0
+
     def __init__(self, scene, parent=None):
         super().__init__(scene, parent)
         self.setRenderHints(self.renderHints() | QPainter.Antialiasing)
@@ -131,10 +134,31 @@ class SemanticGraphicsView(QGraphicsView):
         self._pan_start = QPoint()
 
     def wheelEvent(self, event):
-        factor = 1.15 if event.angleDelta().y() > 0 else 1.0 / 1.15
-        next_scale = self.transform().m11() * factor
-        if 0.05 <= next_scale <= 100.0:
-            self.scale(factor, factor)
+        if self.zoom_by_wheel_delta(event.angleDelta().y()):
+            event.accept()
+        else:
+            event.ignore()
+
+    def zoom_by_wheel_delta(self, delta):
+        if delta == 0:
+            return False
+        current_scale = abs(self.transform().m11())
+        if not math.isfinite(current_scale) or current_scale <= 0.0:
+            return False
+
+        factor = 1.15 if delta > 0 else 1.0 / 1.15
+        next_scale = current_scale * factor
+        if delta < 0 and next_scale < self.MIN_SCALE:
+            if current_scale <= self.MIN_SCALE:
+                return False
+            factor = self.MIN_SCALE / current_scale
+        elif delta > 0 and next_scale > self.MAX_SCALE:
+            if current_scale >= self.MAX_SCALE:
+                return False
+            factor = self.MAX_SCALE / current_scale
+
+        self.scale(factor, factor)
+        return True
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MiddleButton:
@@ -168,19 +192,32 @@ class SemanticGraphicsView(QGraphicsView):
         super().mouseReleaseEvent(event)
 
 
-class FeatureGraphicsItem(QGraphicsPathItem):
+class ContrastPathItem(QGraphicsPathItem):
+    def paint(self, painter, option, widget=None):
+        halo_pen = QPen(self.pen())
+        halo_pen.setColor(QColor(255, 255, 255, 220))
+        halo_pen.setWidthF(self.pen().widthF() + 3.0)
+        painter.save()
+        painter.setPen(halo_pen)
+        painter.setBrush(Qt.NoBrush)
+        painter.drawPath(self.path())
+        painter.restore()
+        super().paint(painter, option, widget)
+
+
+class FeatureGraphicsItem(ContrastPathItem):
     def __init__(self, feature_id, feature_type, path, invalid=False):
         super().__init__(path)
         self.feature_id = feature_id
         color = QColor("#ff3b30") if invalid else FEATURE_COLORS[feature_type]
-        pen = QPen(color, 2.2)
+        pen = QPen(color, 3.2)
         pen.setCosmetic(True)
         if invalid:
             pen.setStyle(Qt.DashLine)
         self.setPen(pen)
         fill = QColor(color)
         is_polygon = feature_type.endswith("zone") or feature_type == "field_boundary"
-        fill.setAlpha(45 if is_polygon else 0)
+        fill.setAlpha(60 if is_polygon else 0)
         self.setBrush(fill)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setZValue(10)
@@ -189,15 +226,15 @@ class FeatureGraphicsItem(QGraphicsPathItem):
 
 class VertexHandle(QGraphicsEllipseItem):
     def __init__(self, feature_id, vertex_key, position, bounds, callback):
-        super().__init__(-4.5, -4.5, 9.0, 9.0)
+        super().__init__(-5.5, -5.5, 11.0, 11.0)
         self.feature_id = feature_id
         self.vertex_key = vertex_key
         self._bounds = bounds
         self._callback = callback
         self._start_position = QPointF(position)
         self.setPos(position)
-        self.setBrush(QColor("#f6f1df"))
-        pen = QPen(QColor("#18211f"), 1.5)
+        self.setBrush(QColor("#ffd60a"))
+        pen = QPen(QColor("#111111"), 2.0)
         pen.setCosmetic(True)
         self.setPen(pen)
         self.setFlags(
@@ -296,8 +333,9 @@ class SemanticGraphicsScene(QGraphicsScene):
         path.moveTo(self.draw_points[0])
         for point in self.draw_points[1:]:
             path.lineTo(point)
-        self.preview_item = QGraphicsPathItem(path)
-        pen = QPen(QColor("#f6f1df"), 1.5, Qt.DashLine)
+        self.preview_item = ContrastPathItem(path)
+        preview_color = FEATURE_COLORS[DRAW_TO_FEATURE[self.editor.tool]]
+        pen = QPen(preview_color, 3.0, Qt.DashLine)
         pen.setCosmetic(True)
         self.preview_item.setPen(pen)
         self.preview_item.setZValue(40)
@@ -335,6 +373,7 @@ class SemanticEditorWindow(QMainWindow):
         self._feature_items = {}
         self._layer_checks = {}
         self._tool_actions = {}
+        self._fit_after_first_show = True
 
         self.setWindowTitle("AGT 农业语义地图编辑器")
         self.resize(1420, 880)
@@ -875,8 +914,8 @@ class SemanticEditorWindow(QMainWindow):
             path.moveTo(points[0])
             for point in points[1:] + [points[0]]:
                 path.lineTo(point)
-            item = QGraphicsPathItem(path)
-            pen = QPen(QColor("#f6f1df"), 1.2, Qt.DotLine)
+            item = ContrastPathItem(path)
+            pen = QPen(QColor("#17202a"), 2.0, Qt.DotLine)
             pen.setCosmetic(True)
             item.setPen(pen)
             item.setZValue(5)
@@ -941,7 +980,22 @@ class SemanticEditorWindow(QMainWindow):
         if report.valid:
             self.validation_list.addItem("OK · 当前任务结构合法")
             return
+        if (
+            not self.read_only
+            and not self.model_scene.features
+            and all(issue.code == "missing_feature_type" for issue in report.issues)
+        ):
+            self.validation_list.addItem(
+                "开始标注 · 请依次绘制作业区、内部障碍、入口位姿和作业方向"
+            )
+            return
         for issue in report.issues:
+            if issue.code == "missing_feature_type":
+                label = FEATURE_LABELS.get(issue.object_id, issue.object_id)
+                self.validation_list.addItem(
+                    f"待绘制 · {label}（保存前必需）"
+                )
+                continue
             self.validation_list.addItem(
                 f"{issue.severity} · {issue.code} · {issue.object_id}: {issue.message}"
             )
@@ -1060,6 +1114,12 @@ class SemanticEditorWindow(QMainWindow):
             self.view.fitInView(
                 self.graphics_scene.sceneRect(), Qt.KeepAspectRatio
             )
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._fit_after_first_show:
+            self._fit_after_first_show = False
+            QTimer.singleShot(0, self.fit_map)
 
     def update_cursor_position(self, scene_point):
         if self.transformer is None:

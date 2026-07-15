@@ -7,7 +7,7 @@ import tempfile
 
 from action_msgs.msg import GoalStatus
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
-from geometry_msgs.msg import Point, PolygonStamped
+from geometry_msgs.msg import Point, PolygonStamped, PoseStamped, Quaternion
 from nav_msgs.msg import Path as NavPath
 from opennav_coverage_msgs.action import ComputeCoveragePath
 from opennav_coverage_msgs.msg import Coordinate, Coordinates, PathComponents
@@ -17,12 +17,20 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from visualization_msgs.msg import Marker, MarkerArray
 
 from agt_coverage_planning.coverage_adapter import (
     CoverageAdapterError,
     prepare_coverage_request,
+)
+from agt_coverage_planning.path_semantics import (
+    PathSemanticsError,
+    Pose2D,
+    SwathInput,
+    TurnInput,
+    build_path_semantics,
 )
 from agt_ui_bridge.platform_profile import (
     load_platform_profile,
@@ -51,7 +59,12 @@ class CoverageRequestAdapter(Node):
         super().__init__("coverage_request_adapter")
         self.declare_parameter("semantic_map", "")
         self.declare_parameter("platform_profile", "")
+        self.declare_parameter("expected_field_id", "")
+        self.declare_parameter("expected_planning_mode", "")
         self.declare_parameter("plan_on_start", False)
+        self.declare_parameter("semantic_swath_sample_step", 0.10)
+        self.declare_parameter("semantic_absolute_length_tolerance", 0.05)
+        self.declare_parameter("semantic_relative_length_tolerance", 0.005)
         self.declare_parameter(
             "polygon_action_name", "/agt/coverage/polygon/compute_coverage_path"
         )
@@ -69,9 +82,11 @@ class CoverageRequestAdapter(Node):
         self.profile_path = str(self.get_parameter("platform_profile").value)
         self.active_task = None
         self.active_spec = None
+        self.active_semantics = None
         self.planning = False
         self._algorithm_field = None
         self._algorithm_planning_field = None
+        self.last_status = None
         self._temporary_directory = tempfile.TemporaryDirectory(
             prefix="agt_coverage_"
         )
@@ -79,8 +94,17 @@ class CoverageRequestAdapter(Node):
         self.path_publisher = self.create_publisher(
             NavPath, "/agt/coverage/path_raw", LATCHED_QOS
         )
+        self.preview_path_publisher = self.create_publisher(
+            NavPath, "/agt/coverage/path_preview", LATCHED_QOS
+        )
         self.components_publisher = self.create_publisher(
             PathComponents, "/agt/coverage/path_components", LATCHED_QOS
+        )
+        self.reconstructed_path_publisher = self.create_publisher(
+            NavPath, "/agt/coverage/path_reconstructed", LATCHED_QOS
+        )
+        self.path_semantics_publisher = self.create_publisher(
+            String, "/agt/coverage/path_semantics", LATCHED_QOS
         )
         self.swaths_publisher = self.create_publisher(
             MarkerArray, "/agt/coverage/swaths", LATCHED_QOS
@@ -176,6 +200,11 @@ class CoverageRequestAdapter(Node):
 
         self.active_task = task
         self.active_spec = spec
+        self.active_semantics = None
+        empty_preview = NavPath()
+        empty_preview.header.frame_id = "map"
+        empty_preview.header.stamp = self.get_clock().now().to_msg()
+        self.preview_path_publisher.publish(empty_preview)
         self.planning = True
         self._publish_status("PLANNING", "synchronizing coverage server parameters")
         request = SetParametersAtomically.Request()
@@ -193,6 +222,8 @@ class CoverageRequestAdapter(Node):
         return True, "coverage planning request accepted"
 
     def _prepare_request(self):
+        self.semantic_path = str(self.get_parameter("semantic_map").value)
+        self.profile_path = str(self.get_parameter("platform_profile").value)
         if not self.semantic_path:
             raise CoverageAdapterError(
                 "semantic_map_not_configured", "semantic_map parameter is empty"
@@ -208,7 +239,26 @@ class CoverageRequestAdapter(Node):
                 f"platform profile not found: {task.coverage.robot_profile}",
             )
         platform = load_platform_profile(profile_path)
-        return task, platform, prepare_coverage_request(task, platform)
+        spec = prepare_coverage_request(task, platform)
+        expected_mode = str(self.get_parameter("expected_planning_mode").value)
+        if expected_mode and spec.planning_mode != expected_mode:
+            raise CoverageAdapterError(
+                "planning_mode_goal_mismatch",
+                f"semantic task uses {spec.planning_mode}, requested {expected_mode}",
+            )
+        expected_field = str(self.get_parameter("expected_field_id").value)
+        enabled_fields = [
+            feature.id
+            for feature in task.semantic_map.features
+            if feature.enabled and feature.feature_type == "field_boundary"
+        ]
+        if expected_field and enabled_fields != [expected_field]:
+            raise CoverageAdapterError(
+                "field_id_goal_mismatch",
+                f"enabled field {enabled_fields} does not match {expected_field}",
+                expected_field,
+            )
+        return task, platform, spec
 
     def _clients_for(self, planning_mode):
         if planning_mode == "annotated_rows":
@@ -322,12 +372,38 @@ class CoverageRequestAdapter(Node):
         if error is not None:
             self._fail(error[0], error[1])
             return
+        self.preview_path_publisher.publish(result.nav_path)
 
-        self.path_publisher.publish(result.nav_path)
+        try:
+            semantics, reconstructed_path, semantics_message = _semantic_products(
+                result.nav_path,
+                result.coverage_path,
+                swath_sample_step=float(
+                    self.get_parameter("semantic_swath_sample_step").value
+                ),
+                absolute_length_tolerance=float(
+                    self.get_parameter("semantic_absolute_length_tolerance").value
+                ),
+                relative_length_tolerance=float(
+                    self.get_parameter("semantic_relative_length_tolerance").value
+                ),
+            )
+        except PathSemanticsError as exc:
+            self._fail(
+                exc.code,
+                f"{exc}; unvalidated server path is available on "
+                "/agt/coverage/path_preview",
+            )
+            return
+
         self.components_publisher.publish(result.coverage_path)
+        self.reconstructed_path_publisher.publish(reconstructed_path)
+        self.path_semantics_publisher.publish(semantics_message)
+        self.path_publisher.publish(result.nav_path)
         self.swaths_publisher.publish(
             _swath_markers(result.coverage_path, self.get_clock().now().to_msg())
         )
+        self.active_semantics = semantics
         self.planning = False
         self._publish_status(
             "SUCCEEDED",
@@ -369,7 +445,29 @@ class CoverageRequestAdapter(Node):
             status.values.append(
                 KeyValue(key="planning_time", value=f"{planning_time:.6f}")
             )
+        if self.active_semantics is not None:
+            swath_ids = self.active_semantics.swath_ids
+            status.values.extend(
+                [
+                    KeyValue(key="swath_ids", value=",".join(swath_ids)),
+                    KeyValue(key="swath_count", value=str(len(swath_ids))),
+                    KeyValue(
+                        key="connection_count",
+                        value=str(
+                            sum(
+                                component.component_type == "CONNECTION"
+                                for component in self.active_semantics.components
+                            )
+                        ),
+                    ),
+                    KeyValue(
+                        key="reconstruction_length_error",
+                        value=f"{self.active_semantics.length_error:.9f}",
+                    ),
+                ]
+            )
         message.status = [status]
+        self.last_status = message
         self.status_publisher.publish(message)
 
 
@@ -387,6 +485,93 @@ def _validate_result(result):
         if not all(math.isfinite(value) for value in values) or norm < 1e-6:
             return "invalid_path_orientation", f"path pose {index} has invalid orientation"
     return None
+
+
+def _semantic_products(
+    nav_path,
+    components,
+    swath_sample_step=0.10,
+    absolute_length_tolerance=0.05,
+    relative_length_tolerance=0.005,
+):
+    if components.header.frame_id != "map":
+        raise PathSemanticsError(
+            "invalid_path_components_frame", "PathComponents frame must be map"
+        )
+    raw_poses = [_pose_2d(stamped) for stamped in nav_path.poses]
+    swaths = [
+        SwathInput(
+            Pose2D(float(swath.start.x), float(swath.start.y), 0.0),
+            Pose2D(float(swath.end.x), float(swath.end.y), 0.0),
+        )
+        for swath in components.swaths
+    ]
+    turns = []
+    for turn in components.turns:
+        if turn.header.frame_id not in {"", "map"}:
+            raise PathSemanticsError(
+                "invalid_connection_frame", "connection Path frame must be map"
+            )
+        turns.append(TurnInput(tuple(_pose_2d(stamped) for stamped in turn.poses)))
+    semantics = build_path_semantics(
+        raw_poses,
+        swaths,
+        turns,
+        frame_id="map",
+        contains_turns=bool(components.contains_turns),
+        swaths_ordered=bool(components.swaths_ordered),
+        swath_sample_step=swath_sample_step,
+        absolute_length_tolerance=absolute_length_tolerance,
+        relative_length_tolerance=relative_length_tolerance,
+    )
+    reconstructed = NavPath()
+    reconstructed.header = nav_path.header
+    reconstructed.header.frame_id = "map"
+    reconstructed.poses = [
+        _pose_stamped(pose, reconstructed.header) for pose in semantics.reconstructed_poses
+    ]
+    semantics_message = String()
+    semantics_message.data = semantics.to_json()
+    return semantics, reconstructed, semantics_message
+
+
+def _pose_2d(stamped):
+    if stamped.header.frame_id not in {"", "map"}:
+        raise PathSemanticsError(
+            "invalid_path_pose_frame", "path pose frame must be map"
+        )
+    orientation = stamped.pose.orientation
+    values = (orientation.x, orientation.y, orientation.z, orientation.w)
+    if not all(math.isfinite(value) for value in values):
+        raise PathSemanticsError(
+            "invalid_path_orientation", "path orientation must be finite"
+        )
+    norm = math.sqrt(sum(value * value for value in values))
+    if norm <= 1e-9:
+        raise PathSemanticsError(
+            "invalid_path_orientation", "path orientation norm is zero"
+        )
+    x, y, z, w = (value / norm for value in values)
+    yaw = math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+    return Pose2D(
+        float(stamped.pose.position.x), float(stamped.pose.position.y), yaw
+    )
+
+
+def _pose_stamped(pose, header):
+    stamped = PoseStamped()
+    stamped.header = header
+    stamped.pose.position.x = pose.x
+    stamped.pose.position.y = pose.y
+    stamped.pose.orientation = _yaw_quaternion(pose.yaw)
+    return stamped
+
+
+def _yaw_quaternion(yaw):
+    quaternion = Quaternion()
+    quaternion.z = math.sin(yaw * 0.5)
+    quaternion.w = math.cos(yaw * 0.5)
+    return quaternion
 
 
 def _swath_markers(components, stamp):

@@ -1,4 +1,4 @@
-"""Launch the TASK-09 adapter and the two Humble coverage servers."""
+"""Launch coverage planning, validation, repair and task orchestration."""
 
 from pathlib import Path
 
@@ -16,6 +16,7 @@ def generate_launch_description():
     platform_profile = LaunchConfiguration("platform_profile")
     use_sim_time = LaunchConfiguration("use_sim_time")
     plan_on_start = LaunchConfiguration("plan_on_start")
+    execution_enabled = LaunchConfiguration("execution_enabled")
 
     polygon_server = Node(
         package="opennav_coverage",
@@ -76,6 +77,45 @@ def generate_launch_description():
             },
         ],
     )
+    validator = Node(
+        package="agt_coverage_planning",
+        executable="coverage_path_validator.py",
+        name="coverage_path_validator",
+        output="screen",
+        parameters=[
+            parameters,
+            {
+                "platform_profile": platform_profile,
+                "use_sim_time": use_sim_time,
+            },
+        ],
+    )
+    repair = Node(
+        package="agt_coverage_planning",
+        executable="coverage_path_repair.py",
+        name="coverage_path_repair",
+        output="screen",
+        parameters=[
+            parameters,
+            {
+                "platform_profile": platform_profile,
+                "use_sim_time": use_sim_time,
+            },
+        ],
+    )
+    task_server = Node(
+        package="agt_coverage_planning",
+        executable="coverage_task_server.py",
+        name="coverage_task_server",
+        output="screen",
+        parameters=[
+            parameters,
+            {
+                "use_sim_time": use_sim_time,
+                "execution_enabled": execution_enabled,
+            },
+        ],
+    )
 
     return LaunchDescription(
         [
@@ -83,10 +123,14 @@ def generate_launch_description():
             DeclareLaunchArgument("platform_profile", default_value=""),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("plan_on_start", default_value="false"),
+            DeclareLaunchArgument("execution_enabled", default_value="false"),
             polygon_server,
             row_server,
             polygon_lifecycle_manager,
             row_lifecycle_manager,
             adapter,
+            validator,
+            repair,
+            task_server,
         ]
     )
