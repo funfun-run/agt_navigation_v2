@@ -29,6 +29,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_semantic_editor test/test_semantic_editor.py)
   ament_add_pytest_test(test_semantic_map_server test/test_semantic_map_server.py)
   ament_add_pytest_test(test_semantic_rasterizer test/test_semantic_rasterizer.py)
+  ament_add_pytest_test(test_coverage_preview test/test_coverage_preview.py)
 endif()
 
 ament_package()

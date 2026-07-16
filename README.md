@@ -76,6 +76,10 @@ ros2 launch agt_description description.launch.py \
 路径 Validator 必须读取所选平台 profile，不得在 coverage 配置中复制 footprint 或再次叠加
 另一套安全裕量。
 
+温室阿克曼实验使用 `profiles/platforms/greenhouse_ackermann.yaml`：用户提供的轴距、轮距、
+车长、车宽、轮径和 `1.5 m` 最小转弯半径已记录，等效最大转角为 `21.801409 deg`。当前
+`base_link` 参考点和运动限速仍标记为待实车标定，footprint 暂按车体几何中心对称且不附加隐式裕量。
+
 ### 语义地图合同
 
 农业语义对象独立保存为 GeoJSON 与 `coverage.yaml`，统一使用 `map` frame、米制坐标和 ROS

@@ -3,20 +3,26 @@
 import argparse
 from copy import deepcopy
 from dataclasses import dataclass
+import json
 import math
 import os
 from pathlib import Path
 import re
+import secrets
 import sys
+import tempfile
 
-from PIL import Image, ImageOps
-from PyQt5.QtCore import QPoint, QPointF, QTimer, Qt
+import numpy as np
+from diagnostic_msgs.msg import DiagnosticArray
+from nav_msgs.msg import Path as NavPath
+from PyQt5.QtCore import QPoint, QPointF, QProcess, QProcessEnvironment, QTimer, Qt
 from PyQt5.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PyQt5.QtWidgets import (
     QAction,
     QActionGroup,
     QApplication,
     QCheckBox,
+    QComboBox,
     QDockWidget,
     QFileDialog,
     QFormLayout,
@@ -28,6 +34,7 @@ from PyQt5.QtWidgets import (
     QGraphicsView,
     QHBoxLayout,
     QInputDialog,
+    QLabel,
     QLineEdit,
     QListWidget,
     QMainWindow,
@@ -38,8 +45,24 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+import rclpy
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from std_msgs.msg import String
 import yaml
+from shapely.geometry import Polygon
+from shapely.validation import explain_validity
 
+from agt_ui_bridge.map_image import (
+    FREE_PIXEL,
+    OCCUPIED_PIXEL,
+    UNKNOWN_PIXEL,
+    load_nav2_map_image,
+    save_nav2_map_image,
+)
+from agt_ui_bridge.coverage_preview import (
+    CoveragePreviewError,
+    derive_inter_row_aisles,
+)
 from agt_ui_bridge.map_transform import MapGeometry, MapTransform
 from agt_ui_bridge.platform_profile import (
     load_platform_profile,
@@ -85,6 +108,16 @@ DRAW_TO_FEATURE = {
     "entry_pose": "entry_pose",
     "work_direction": "work_direction",
 }
+MAP_EDIT_TO_PIXEL = {
+    "map_occupied": OCCUPIED_PIXEL,
+    "map_free": FREE_PIXEL,
+    "map_unknown": UNKNOWN_PIXEL,
+}
+LATCHED_QOS = QoSProfile(
+    depth=1,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+    reliability=ReliabilityPolicy.RELIABLE,
+)
 
 
 @dataclass
@@ -257,7 +290,13 @@ class VertexHandle(QGraphicsEllipseItem):
     def mouseReleaseEvent(self, event):
         super().mouseReleaseEvent(event)
         if self.pos() != self._start_position:
-            self._callback(self.feature_id, self.vertex_key, self.pos())
+            feature_id = self.feature_id
+            vertex_key = self.vertex_key
+            position = QPointF(self.pos())
+            callback = self._callback
+            QTimer.singleShot(
+                0, lambda: callback(feature_id, vertex_key, position)
+            )
 
 
 class SemanticGraphicsScene(QGraphicsScene):
@@ -266,9 +305,13 @@ class SemanticGraphicsScene(QGraphicsScene):
         self.editor = editor
         self.draw_points = []
         self.preview_item = None
+        self.map_stroke_start = None
+        self.map_stroke_last = None
 
     def cancel_drawing(self):
         self.draw_points.clear()
+        self.map_stroke_start = None
+        self.map_stroke_last = None
         if self.preview_item is not None:
             self.removeItem(self.preview_item)
             self.preview_item = None
@@ -285,11 +328,47 @@ class SemanticGraphicsScene(QGraphicsScene):
                 f"当前对象至少需要 {minimum} 个点", 3000
             )
             return
+        if self.editor.tool in {"field_boundary", "exclusion_zone"}:
+            polygon = Polygon([(point.x(), point.y()) for point in self.draw_points])
+            if not polygon.is_valid:
+                QMessageBox.warning(
+                    self.editor,
+                    "区域边界无效",
+                    f"边界发生交叉，尚未完成：{explain_validity(polygon)}\n"
+                    "按 Backspace 撤回最后一个点后继续绘制，或按 Esc 取消。",
+                )
+                return
         points = list(self.draw_points)
         self.cancel_drawing()
         self.editor.finish_feature_from_scene(self.editor.tool, points)
 
+    def remove_last_draw_point(self):
+        if not self.draw_points:
+            return False
+        self.draw_points.pop()
+        if self.draw_points:
+            self._update_preview()
+        elif self.preview_item is not None:
+            self.removeItem(self.preview_item)
+            self.preview_item = None
+        self.editor.statusBar().showMessage("已撤回草稿最后一个点", 2000)
+        return True
+
     def mousePressEvent(self, event):
+        if self.editor.tool in MAP_EDIT_TO_PIXEL and not self.editor.read_only:
+            if event.button() == Qt.LeftButton:
+                point = event.scenePos()
+                if self.sceneRect().contains(point):
+                    self.map_stroke_start = QPointF(point)
+                    self.map_stroke_last = QPointF(point)
+                    self.editor.begin_map_edit()
+                    if self.editor.map_draw_mode == "brush":
+                        self.editor.apply_map_brush(point, refresh=False)
+                        self.editor._refresh_map_item()
+                    else:
+                        self._update_map_line_preview(point)
+                    event.accept()
+                    return
         if self.editor.tool == "select" or self.editor.read_only:
             super().mousePressEvent(event)
             return
@@ -324,7 +403,59 @@ class SemanticGraphicsScene(QGraphicsScene):
 
     def mouseMoveEvent(self, event):
         self.editor.update_cursor_position(event.scenePos())
+        if (
+            self.editor.tool in MAP_EDIT_TO_PIXEL
+            and not self.editor.read_only
+            and event.buttons() & Qt.LeftButton
+        ):
+            point = event.scenePos()
+            if self.sceneRect().contains(point):
+                if self.editor.map_draw_mode == "brush":
+                    start = self.map_stroke_last or point
+                    self.editor.apply_map_line(start, point, refresh=False)
+                    self.map_stroke_last = QPointF(point)
+                    self.editor._refresh_map_item()
+                else:
+                    self._update_map_line_preview(point)
+                event.accept()
+                return
         super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if (
+            self.editor.tool in MAP_EDIT_TO_PIXEL
+            and not self.editor.read_only
+            and event.button() == Qt.LeftButton
+            and self.map_stroke_start is not None
+        ):
+            point = event.scenePos()
+            if self.editor.map_draw_mode == "line":
+                self.editor.apply_map_line(self.map_stroke_start, point)
+            else:
+                self.editor._refresh_map_item()
+            self.map_stroke_start = None
+            self.map_stroke_last = None
+            self.editor.commit_map_edit()
+            if self.preview_item is not None:
+                self.removeItem(self.preview_item)
+                self.preview_item = None
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def _update_map_line_preview(self, point):
+        if self.preview_item is not None:
+            self.removeItem(self.preview_item)
+        path = QPainterPath(self.map_stroke_start)
+        path.lineTo(point)
+        self.preview_item = QGraphicsPathItem(path)
+        pixel = MAP_EDIT_TO_PIXEL[self.editor.tool]
+        color = QColor(pixel, pixel, pixel)
+        pen = QPen(color, float(self.editor.map_brush_size), Qt.DashLine)
+        pen.setCosmetic(True)
+        self.preview_item.setPen(pen)
+        self.preview_item.setZValue(50)
+        self.addItem(self.preview_item)
 
     def _update_preview(self):
         if self.preview_item is not None:
@@ -366,20 +497,46 @@ class SemanticEditorWindow(QMainWindow):
         self.model_scene = None
         self.transformer = None
         self.map_pixmap = None
+        self._map_item = None
+        self.map_array = None
+        self.map_metadata = None
+        self.map_dirty = False
+        self.map_brush_size = 3
+        self.map_draw_mode = "brush"
+        self.selected_vertex = None
+        self._map_undo_stack = []
+        self._map_redo_stack = []
+        self._map_edit_before = None
+        self._edit_timeline = []
+        self._redo_timeline = []
         self.read_only = False
         self.tool = "select"
         self.selected_feature_id = None
         self._rendering = False
+        self._refresh_pending = False
         self._feature_items = {}
         self._layer_checks = {}
         self._tool_actions = {}
         self._fit_after_first_show = True
+        self._preview_process = None
+        self._preview_tempdir = None
+        self._preview_world_points = []
+        self._preview_path_summary = {}
+        self._preview_status = "尚未生成路线"
+        self._preview_run_active = False
+        self._preview_accept_after_ns = 0
+        self._preview_has_current_path = False
+        self._preview_domain_id = None
+        self._preview_context = None
+        self._preview_node = None
+        self._preview_spin_timer = None
 
         self.setWindowTitle("AGT 农业语义地图编辑器")
         self.resize(1420, 880)
         self.graphics_scene = SemanticGraphicsScene(self)
         self.view = SemanticGraphicsView(self.graphics_scene, self)
         self._build_ui()
+        self._init_preview_ros()
         self.graphics_scene.selectionChanged.connect(self._selection_changed)
         self.statusBar().showMessage("加载 Nav2 地图或语义任务开始标注")
 
@@ -423,7 +580,7 @@ class SemanticEditorWindow(QMainWindow):
         undo_action.setShortcut("Ctrl+Z")
         undo_action.triggered.connect(self.undo)
         redo_action = QAction("重做", self)
-        redo_action.setShortcut("Ctrl+Shift+Z")
+        redo_action.setShortcuts(["Ctrl+Shift+Z", "Ctrl+Y"])
         redo_action.triggered.connect(self.redo)
         delete_action = QAction("删除", self)
         delete_action.setShortcut("Delete")
@@ -451,9 +608,44 @@ class SemanticEditorWindow(QMainWindow):
             self._tool_actions[tool] = action
         self._tool_actions["select"].setChecked(True)
 
+        map_toolbar = self.addToolBar("底图编辑")
+        for tool, label in (
+            ("map_occupied", "地图障碍"),
+            ("map_free", "地图自由"),
+            ("map_unknown", "地图未知"),
+        ):
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.triggered.connect(
+                lambda checked, selected=tool: checked and self.set_tool(selected)
+            )
+            tool_group.addAction(action)
+            map_toolbar.addAction(action)
+            self._tool_actions[tool] = action
+        map_toolbar.addSeparator()
+        draw_mode_group = QActionGroup(self)
+        draw_mode_group.setExclusive(True)
+        for mode, label in (("brush", "自由画笔"), ("line", "画直线")):
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.setChecked(mode == self.map_draw_mode)
+            action.triggered.connect(
+                lambda checked, selected=mode: checked
+                and self.set_map_draw_mode(selected)
+            )
+            draw_mode_group.addAction(action)
+            map_toolbar.addAction(action)
+        map_toolbar.addSeparator()
+        grow_brush = QAction("画笔+", self)
+        grow_brush.triggered.connect(lambda: self._change_map_brush(1))
+        shrink_brush = QAction("画笔-", self)
+        shrink_brush.triggered.connect(lambda: self._change_map_brush(-1))
+        map_toolbar.addActions([grow_brush, shrink_brush])
+
         self._build_object_dock()
         self._build_layer_dock()
         self._build_validation_dock()
+        self._build_preview_dock()
 
     def _build_object_dock(self):
         dock = QDockWidget("语义对象", self)
@@ -489,6 +681,11 @@ class SemanticEditorWindow(QMainWindow):
         base_check.toggled.connect(self.refresh_scene)
         self._layer_checks["base_map"] = base_check
         layout.addWidget(base_check)
+        preview_check = QCheckBox("路线预览")
+        preview_check.setChecked(True)
+        preview_check.toggled.connect(self.refresh_scene)
+        self._layer_checks["route_preview"] = preview_check
+        layout.addWidget(preview_check)
         for feature_type, label in FEATURE_LABELS.items():
             checkbox = QCheckBox(label)
             checkbox.setChecked(True)
@@ -508,6 +705,299 @@ class SemanticEditorWindow(QMainWindow):
         self.validation_list = QListWidget()
         dock.setWidget(self.validation_list)
         self.addDockWidget(Qt.BottomDockWidgetArea, dock)
+
+    def _build_preview_dock(self):
+        dock = QDockWidget("路线预览", self)
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        layout.addWidget(QLabel("输入语义"))
+        self.preview_mode_combo = QComboBox()
+        self.preview_mode_combo.addItem("作物行间道路（推荐）", "inter_row_aisles")
+        self.preview_mode_combo.addItem("标注线就是道路", "annotated_rows")
+        self.preview_mode_combo.addItem("区域自动覆盖", "polygon")
+        layout.addWidget(self.preview_mode_combo)
+        layout.addWidget(QLabel("连接模型"))
+        self.preview_path_combo = QComboBox()
+        self.preview_path_combo.addItem("Reeds-Shepp（允许倒车）", "reeds_shepp")
+        self.preview_path_combo.addItem("Dubins（仅前进）", "dubins")
+        layout.addWidget(self.preview_path_combo)
+        buttons = QHBoxLayout()
+        generate_button = QPushButton("生成路线")
+        generate_button.clicked.connect(self.start_coverage_preview)
+        stop_button = QPushButton("停止预览")
+        stop_button.clicked.connect(self.stop_coverage_preview)
+        buttons.addWidget(generate_button)
+        buttons.addWidget(stop_button)
+        layout.addLayout(buttons)
+        self.preview_info = QLabel(self._preview_status)
+        self.preview_info.setWordWrap(True)
+        self.preview_info.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout.addWidget(self.preview_info)
+        dock.setWidget(panel)
+        self.addDockWidget(Qt.RightDockWidgetArea, dock)
+
+    def _init_preview_ros(self):
+        if not rclpy.ok():
+            return
+        # Offline planning is isolated from stale preview nodes and the live robot graph.
+        self._preview_domain_id = 20 + secrets.randbelow(180)
+        self._preview_context = rclpy.Context()
+        self._preview_context.init(domain_id=self._preview_domain_id)
+        self._preview_node = rclpy.create_node(
+            "agt_semantic_editor_preview", context=self._preview_context
+        )
+        self._preview_node.create_subscription(
+            NavPath, "/agt/coverage/path_preview", self._preview_path_callback, LATCHED_QOS
+        )
+        self._preview_node.create_subscription(
+            DiagnosticArray,
+            "/agt/coverage/status",
+            self._preview_status_callback,
+            LATCHED_QOS,
+        )
+        self._preview_node.create_subscription(
+            String,
+            "/agt/coverage/simulation_report",
+            self._preview_report_callback,
+            LATCHED_QOS,
+        )
+        self._preview_spin_timer = QTimer(self)
+        self._preview_spin_timer.timeout.connect(
+            lambda: rclpy.spin_once(self._preview_node, timeout_sec=0.0)
+        )
+        self._preview_spin_timer.start(30)
+
+    def start_coverage_preview(self):
+        if self.model_scene is None or self.map_path is None:
+            QMessageBox.warning(self, "无法预览", "请先加载并保存语义任务")
+            return False
+        if self.model_scene.dirty or self.map_dirty:
+            if not self.save():
+                return False
+        self.stop_coverage_preview(clear_route=True)
+        try:
+            semantic_map, coverage = self._preview_task()
+            self._preview_tempdir = tempfile.TemporaryDirectory(
+                prefix="agt_editor_coverage_preview_"
+            )
+            root = Path(self._preview_tempdir.name)
+            semantic_path = root / "semantic_map.geojson"
+            coverage_path = root / "coverage.yaml"
+            coverage.base_map = str(self.map_path)
+            coverage.base_map_sha256 = sha256_file(self.map_path)
+            save_semantic_task(
+                semantic_map,
+                coverage,
+                semantic_path,
+                coverage_path,
+                validation_context=self._validation_context(),
+            )
+        except (CoveragePreviewError, OSError, SemanticFileError, ValueError) as exc:
+            QMessageBox.warning(self, "预览任务无效", str(exc))
+            self._cleanup_preview_tempdir()
+            return False
+
+        process = QProcess(self)
+        process.setProcessChannelMode(QProcess.MergedChannels)
+        environment = QProcessEnvironment.systemEnvironment()
+        environment.insert("ROS_DOMAIN_ID", str(self._preview_domain_id))
+        process.setProcessEnvironment(environment)
+        process.readyReadStandardOutput.connect(
+            lambda active=process: self._preview_process_output(active)
+        )
+        process.finished.connect(
+            lambda exit_code, exit_status, active=process: (
+                self._preview_process_finished(active, exit_code, exit_status)
+            )
+        )
+        self._preview_process = process
+        report_path = Path(self._preview_tempdir.name) / "simulation_report.json"
+        arguments = [
+            "launch",
+            "agt_coverage_planning",
+            "coverage_preview.launch.py",
+            f"map:={self.map_path}",
+            f"semantic_map:={semantic_path}",
+            f"platform_profile:={self.platform_profile_path}",
+            "start_rviz:=false",
+            f"simulation_report_path:={report_path}",
+        ]
+        self._preview_status = "正在启动离线规划（执行始终关闭）..."
+        self._preview_run_active = True
+        self._preview_has_current_path = False
+        self._preview_accept_after_ns = (
+            self._preview_node.get_clock().now().nanoseconds
+            if self._preview_node is not None
+            else 0
+        )
+        self._update_preview_info()
+        self._preview_process.start("ros2", arguments)
+        if not self._preview_process.waitForStarted(3000):
+            self._preview_run_active = False
+            self._preview_status = (
+                "规划进程启动失败。请先 source 覆盖依赖工作区和本仓库 install。"
+            )
+            self._update_preview_info()
+            return False
+        return True
+
+    def _preview_task(self):
+        semantic_map = deepcopy(self.model_scene.semantic_map)
+        coverage = deepcopy(self.coverage)
+        mode = self.preview_mode_combo.currentData()
+        if mode == "inter_row_aisles":
+            semantic_map = derive_inter_row_aisles(semantic_map)
+            coverage.planning_mode = "annotated_rows"
+            coverage.row_interpretation = "direct_swaths"
+        elif mode == "annotated_rows":
+            coverage.planning_mode = "annotated_rows"
+            coverage.row_interpretation = "direct_swaths"
+        else:
+            coverage.planning_mode = "polygon"
+        coverage.allow_reverse = self.preview_path_combo.currentData() == "reeds_shepp"
+        return semantic_map, coverage
+
+    def stop_coverage_preview(self, clear_route=False):
+        self._preview_run_active = False
+        self._preview_has_current_path = False
+        process = self._preview_process
+        self._preview_process = None
+        if process is not None and process.state() != QProcess.NotRunning:
+            process.terminate()
+            if not process.waitForFinished(8000):
+                process.kill()
+                process.waitForFinished(2000)
+        self._cleanup_preview_tempdir()
+        if clear_route:
+            self._preview_world_points = []
+            self._preview_path_summary = {}
+            self.refresh_scene()
+        self._preview_status = "预览已停止" if process is not None else self._preview_status
+        self._update_preview_info()
+
+    def _cleanup_preview_tempdir(self):
+        if self._preview_tempdir is not None:
+            self._preview_tempdir.cleanup()
+            self._preview_tempdir = None
+
+    def _preview_process_output(self, process):
+        if process is not self._preview_process:
+            return
+        text = bytes(process.readAllStandardOutput()).decode(
+            "utf-8", errors="replace"
+        )
+        if "Package 'agt_coverage_planning' not found" in text:
+            self._preview_status = "找不到覆盖规划包，请 source agt_coverage_ws/install/setup.bash"
+            self._update_preview_info()
+
+    def _preview_process_finished(self, process, exit_code, _exit_status):
+        if process is not self._preview_process:
+            return
+        self._preview_run_active = False
+        if exit_code != 0 and not self._preview_world_points:
+            self._preview_status = f"规划进程已退出（code={exit_code}）"
+        self._update_preview_info()
+
+    def _preview_message_is_current(self, message):
+        if not self._preview_run_active:
+            return False
+        header = getattr(message, "header", None)
+        stamp = getattr(header, "stamp", None)
+        if stamp is None or self._preview_accept_after_ns <= 0:
+            return True
+        stamp_ns = int(stamp.sec) * 1_000_000_000 + int(stamp.nanosec)
+        return stamp_ns >= self._preview_accept_after_ns
+
+    def _preview_path_callback(self, message):
+        if not self._preview_message_is_current(message):
+            return
+        points = [
+            (float(pose.pose.position.x), float(pose.pose.position.y))
+            for pose in message.poses
+        ]
+        self._preview_world_points = points
+        self._preview_has_current_path = bool(points)
+        if not points:
+            for key in (
+                "路径点",
+                "长度",
+                "预计时间",
+                "预计转弯",
+                "倒车距离",
+            ):
+                self._preview_path_summary.pop(key, None)
+            self.refresh_scene()
+            self._update_preview_info()
+            return
+        length = sum(math.dist(a, b) for a, b in zip(points, points[1:]))
+        self._preview_path_summary.update(
+            {"路径点": len(points), "长度": f"{length:.2f} m"}
+        )
+        self.refresh_scene()
+        self._update_preview_info()
+
+    def _preview_status_callback(self, message):
+        if not self._preview_message_is_current(message):
+            return
+        status = next(
+            (item for item in message.status if item.name == "agt_coverage_request_adapter"),
+            None,
+        )
+        if status is None:
+            return
+        values = {item.key: item.value for item in status.values}
+        state = status.message
+        error_code = values.get("error_code")
+        detail = values.get("detail", "")
+        if state == "WAITING_FOR_SERVER":
+            self._preview_status = "WAITING_FOR_SERVER（服务器启动中，正在自动重试）"
+            self._preview_path_summary["等待原因"] = error_code or "server_unavailable"
+            if detail:
+                self._preview_path_summary["详情"] = detail
+            self._preview_path_summary.pop("错误码", None)
+        else:
+            self._preview_status = state
+            self._preview_path_summary.pop("等待原因", None)
+            if error_code not in {None, "none"}:
+                self._preview_path_summary["错误码"] = error_code
+            else:
+                self._preview_path_summary.pop("错误码", None)
+            if state in {"REJECTED", "FAILED"} and detail:
+                self._preview_path_summary["详情"] = detail
+            else:
+                self._preview_path_summary.pop("详情", None)
+        self._update_preview_info()
+
+    def _preview_report_callback(self, message):
+        # String has no header, so only accept metrics after this run's fresh path.
+        if not self._preview_run_active or not self._preview_has_current_path:
+            return
+        try:
+            report = json.loads(message.data)
+        except (TypeError, ValueError):
+            return
+        for key, label, suffix in (
+            ("estimated_motion_time", "预计时间", " s"),
+            ("estimated_turn_count", "预计转弯", ""),
+            ("reverse_path_length", "倒车距离", " m"),
+        ):
+            value = report.get(key)
+            if value is not None:
+                self._preview_path_summary[label] = f"{float(value):.2f}{suffix}"
+        self._update_preview_info()
+
+    def _update_preview_info(self):
+        if not hasattr(self, "preview_info"):
+            return
+        mode = self.preview_mode_combo.currentText()
+        model = self.preview_path_combo.currentText()
+        details = "\n".join(
+            f"{key}: {value}" for key, value in self._preview_path_summary.items()
+        )
+        text = f"{mode}\n{model}\n状态: {self._preview_status}"
+        if details:
+            text += "\n" + details
+        self.preview_info.setText(text)
 
     def choose_base_map(self):
         if not self._confirm_discard_changes():
@@ -623,39 +1113,146 @@ class SemanticEditorWindow(QMainWindow):
     def _set_base_map(self, map_path):
         self.map_path = Path(map_path).expanduser().resolve()
         self.transformer = MapTransform(MapGeometry.from_nav2_yaml(self.map_path))
-        metadata = yaml.safe_load(self.map_path.read_text(encoding="utf-8"))
-        image_path = Path(metadata["image"])
-        if not image_path.is_absolute():
-            image_path = self.map_path.parent / image_path
-        image = Image.open(image_path).convert("L")
-        if bool(metadata.get("negate", 0)):
-            image = ImageOps.invert(image)
-        data = image.tobytes("raw", "L")
+        loaded_map = load_nav2_map_image(self.map_path)
+        self.map_metadata = loaded_map.metadata
+        self.map_array = loaded_map.image
+        self.map_dirty = False
+        self._map_undo_stack.clear()
+        self._map_redo_stack.clear()
+        self._map_edit_before = None
+        self._edit_timeline.clear()
+        self._redo_timeline.clear()
+        self._update_map_pixmap()
+        self.graphics_scene.setSceneRect(
+            0.0, 0.0, float(self.map_array.shape[1]), float(self.map_array.shape[0])
+        )
+
+    def _update_map_pixmap(self):
+        if self.map_array is None:
+            self.map_pixmap = None
+            return
+        data = self.map_array.tobytes("C")
         qimage = QImage(
             data,
-            image.width,
-            image.height,
-            image.width,
+            self.map_array.shape[1],
+            self.map_array.shape[0],
+            self.map_array.shape[1],
             QImage.Format_Grayscale8,
         ).copy()
         self.map_pixmap = QPixmap.fromImage(qimage)
-        self.graphics_scene.setSceneRect(
-            0.0, 0.0, float(image.width), float(image.height)
-        )
+
+    def _refresh_map_item(self):
+        if self._map_item is not None and self.map_pixmap is not None:
+            self._map_item.setPixmap(self.map_pixmap)
 
     def set_tool(self, tool):
         if self.read_only and tool != "select":
             self._tool_actions["select"].setChecked(True)
             return
+        if self.graphics_scene.draw_points and tool != self.tool:
+            result = QMessageBox.question(
+                self,
+                "放弃未完成绘制？",
+                "切换工具会丢弃当前尚未完成的顶点。是否继续？",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if result != QMessageBox.Yes:
+                self._tool_actions[self.tool].setChecked(True)
+                return
         self.graphics_scene.cancel_drawing()
         self.tool = tool
+        if tool != "select":
+            self.selected_vertex = None
         self.refresh_scene()
         if tool == "select":
             self.statusBar().showMessage("选择对象或拖动顶点；中键平移，滚轮缩放")
+        elif tool in MAP_EDIT_TO_PIXEL:
+            self._show_map_tool_status()
         elif tool in {"field_boundary", "exclusion_zone", "row_centerline"}:
             self.statusBar().showMessage("左键添加顶点，双击/右键/Enter 完成，Esc 取消")
         else:
             self.statusBar().showMessage("点击位置，再点击方向点")
+
+    def _change_map_brush(self, delta):
+        self.map_brush_size = max(1, min(30, self.map_brush_size + delta))
+        if self.tool in MAP_EDIT_TO_PIXEL:
+            self._show_map_tool_status(2000)
+
+    def set_map_draw_mode(self, mode):
+        if mode not in {"brush", "line"}:
+            raise ValueError(f"unsupported map draw mode: {mode}")
+        self.graphics_scene.cancel_drawing()
+        self.map_draw_mode = mode
+        if self.tool in MAP_EDIT_TO_PIXEL:
+            self._show_map_tool_status()
+
+    def _show_map_tool_status(self, timeout=0):
+        operation = "拖动连续绘制" if self.map_draw_mode == "brush" else "拖动预览，松开画直线"
+        self.statusBar().showMessage(
+            f"底图：{operation}；宽度 {self.map_brush_size} 像素", timeout
+        )
+
+    def apply_map_brush(self, scene_point, refresh=True):
+        if self.map_array is None or self.tool not in MAP_EDIT_TO_PIXEL:
+            return
+        image_x = int(scene_point.x())
+        image_y = int(scene_point.y())
+        if not self.transformer.contains_image(image_x, image_y):
+            return
+        before = (self.map_brush_size - 1) // 2
+        after = self.map_brush_size // 2
+        x0 = max(0, image_x - before)
+        x1 = min(self.map_array.shape[1], image_x + after + 1)
+        y0 = max(0, image_y - before)
+        y1 = min(self.map_array.shape[0], image_y + after + 1)
+        new_pixel = MAP_EDIT_TO_PIXEL[self.tool]
+        patch = self.map_array[y0:y1, x0:x1]
+        if np.all(patch == new_pixel):
+            return
+        self.map_array[y0:y1, x0:x1] = new_pixel
+        self.map_dirty = True
+        self._update_map_pixmap()
+        if refresh:
+            self._refresh_map_item()
+        self._update_title()
+
+    def apply_map_line(self, start, end, refresh=True):
+        delta_x = end.x() - start.x()
+        delta_y = end.y() - start.y()
+        steps = max(1, int(math.ceil(max(abs(delta_x), abs(delta_y)))))
+        for index in range(steps + 1):
+            ratio = index / steps
+            self.apply_map_brush(
+                QPointF(start.x() + delta_x * ratio, start.y() + delta_y * ratio),
+                refresh=False,
+            )
+        if refresh:
+            self._refresh_map_item()
+
+    def begin_map_edit(self):
+        if self.map_array is not None and self._map_edit_before is None:
+            self._map_edit_before = self.map_array.copy()
+
+    def commit_map_edit(self):
+        if self._map_edit_before is None or self.map_array is None:
+            return False
+        before = self._map_edit_before
+        self._map_edit_before = None
+        if np.array_equal(before, self.map_array):
+            return False
+        self._map_undo_stack.append(before)
+        if len(self._map_undo_stack) > self.defaults.history_limit:
+            self._map_undo_stack.pop(0)
+        self._map_redo_stack.clear()
+        self._record_edit_domain("map")
+        return True
+
+    def _record_edit_domain(self, domain):
+        self._edit_timeline.append(domain)
+        if len(self._edit_timeline) > self.defaults.history_limit:
+            self._edit_timeline.pop(0)
+        self._redo_timeline.clear()
 
     def finish_feature_from_scene(self, tool, scene_points, feature_id=None, name=None):
         if self.read_only or self.model_scene is None:
@@ -712,8 +1309,13 @@ class SemanticEditorWindow(QMainWindow):
         except ValueError as exc:
             QMessageBox.warning(self, "对象创建失败", str(exc))
             return False
+        self._record_edit_domain("semantic")
         self.selected_feature_id = feature.id
-        self.refresh_scene()
+        self._tool_actions["select"].setChecked(True)
+        if self.tool != "select":
+            self.set_tool("select")
+        else:
+            self.refresh_scene()
         return True
 
     def add_feature(self, feature):
@@ -747,6 +1349,7 @@ class SemanticEditorWindow(QMainWindow):
         try:
             selected_id = self.selected_feature_id
             self.graphics_scene.clear()
+            self._map_item = None
             self.graphics_scene.preview_item = None
             self.graphics_scene.draw_points.clear()
             self._feature_items = {}
@@ -754,6 +1357,8 @@ class SemanticEditorWindow(QMainWindow):
                 map_item = QGraphicsPixmapItem(self.map_pixmap)
                 map_item.setZValue(-100)
                 self.graphics_scene.addItem(map_item)
+                self._map_item = map_item
+            self._render_route_preview()
             if self.model_scene is None:
                 return
             report = validate_task(
@@ -794,6 +1399,17 @@ class SemanticEditorWindow(QMainWindow):
             self._refresh_validation(report)
         finally:
             self._rendering = False
+
+    def _schedule_scene_refresh(self):
+        if self._refresh_pending:
+            return
+        self._refresh_pending = True
+
+        def refresh_after_event():
+            self._refresh_pending = False
+            self.refresh_scene()
+
+        QTimer.singleShot(0, refresh_after_event)
 
     def _feature_path(self, feature):
         path = QPainterPath()
@@ -855,6 +1471,8 @@ class SemanticEditorWindow(QMainWindow):
                 self.graphics_scene.sceneRect(),
                 self._vertex_moved,
             )
+            if self.selected_vertex == (feature.id, key):
+                handle.setSelected(True)
             self.graphics_scene.addItem(handle)
 
     def _vertex_moved(self, feature_id, vertex_key, scene_position):
@@ -885,6 +1503,7 @@ class SemanticEditorWindow(QMainWindow):
         else:
             updated.coordinates = world
         self.model_scene.replace(updated)
+        self._record_edit_domain("semantic")
         self.selected_feature_id = updated.id
         self.refresh_scene()
 
@@ -921,6 +1540,22 @@ class SemanticEditorWindow(QMainWindow):
             item.setZValue(5)
             self.graphics_scene.addItem(item)
 
+    def _render_route_preview(self):
+        if len(self._preview_world_points) < 2 or not self._layer_visible(
+            "route_preview"
+        ):
+            return
+        path = QPainterPath(self._world_point(self._preview_world_points[0]))
+        for point in self._preview_world_points[1:]:
+            path.lineTo(self._world_point(point))
+        item = ContrastPathItem(path)
+        pen = QPen(QColor("#ff3b30"), 3.0)
+        pen.setCosmetic(True)
+        item.setPen(pen)
+        item.setZValue(45)
+        item.setToolTip("离线覆盖路线预览：不可执行")
+        self.graphics_scene.addItem(item)
+
     def _layer_visible(self, name):
         checkbox = self._layer_checks.get(name)
         return checkbox is None or checkbox.isChecked()
@@ -938,22 +1573,38 @@ class SemanticEditorWindow(QMainWindow):
     def _selection_changed(self):
         if self._rendering:
             return
+        selected_handles = [
+            item
+            for item in self.graphics_scene.selectedItems()
+            if isinstance(item, VertexHandle)
+        ]
         selected = [
             item
             for item in self.graphics_scene.selectedItems()
             if isinstance(item, FeatureGraphicsItem)
         ]
-        self.selected_feature_id = selected[0].feature_id if selected else None
+        if selected_handles:
+            handle = selected_handles[0]
+            self.selected_feature_id = handle.feature_id
+            self.selected_vertex = (handle.feature_id, handle.vertex_key)
+            self.model_scene.selected_feature_id = self.selected_feature_id
+            self._refresh_tree()
+            return
+        else:
+            self.selected_feature_id = selected[0].feature_id if selected else None
+            self.selected_vertex = None
         self.model_scene.selected_feature_id = self.selected_feature_id
-        self.refresh_scene()
+        # Never clear the scene while Qt is still dispatching an item event.
+        self._schedule_scene_refresh()
 
     def _tree_selection_changed(self):
         if self._rendering:
             return
         items = self.object_tree.selectedItems()
         self.selected_feature_id = items[0].data(0, Qt.UserRole) if items else None
+        self.selected_vertex = None
         self.model_scene.selected_feature_id = self.selected_feature_id
-        self.refresh_scene()
+        self._schedule_scene_refresh()
 
     def _refresh_tree(self):
         self.object_tree.blockSignals(True)
@@ -1017,6 +1668,7 @@ class SemanticEditorWindow(QMainWindow):
         except ValueError as exc:
             QMessageBox.warning(self, "属性修改失败", str(exc))
             return
+        self._record_edit_domain("semantic")
         self.selected_feature_id = updated.id
         self.refresh_scene()
 
@@ -1024,20 +1676,59 @@ class SemanticEditorWindow(QMainWindow):
         if self.read_only or not self.selected_feature_id:
             return
         self.model_scene.remove(self.selected_feature_id)
+        self._record_edit_domain("semantic")
         self.selected_feature_id = None
         self.refresh_scene()
 
     def undo(self):
-        if self.model_scene and not self.read_only and self.model_scene.undo():
+        if self.read_only:
+            return
+        domain = self._edit_timeline.pop() if self._edit_timeline else "semantic"
+        if domain == "map" and self._map_undo_stack:
+            self._map_redo_stack.append(self.map_array.copy())
+            self.map_array = self._map_undo_stack.pop()
+            self.map_dirty = True
+            self._update_map_pixmap()
+            self._refresh_map_item()
+            self._redo_timeline.append("map")
+            self._update_title()
+            self.statusBar().showMessage("已撤销底图笔划", 2000)
+        elif self.model_scene and self.model_scene.undo():
             self.selected_feature_id = self.model_scene.selected_feature_id
+            self.selected_vertex = None
             self.refresh_scene()
+            self._redo_timeline.append("semantic")
+        else:
+            if domain != "semantic":
+                self._edit_timeline.append(domain)
+            self.statusBar().showMessage("没有可撤销的操作", 2000)
 
     def redo(self):
-        if self.model_scene and not self.read_only and self.model_scene.redo():
+        if self.read_only:
+            return
+        domain = self._redo_timeline.pop() if self._redo_timeline else "semantic"
+        if domain == "map" and self._map_redo_stack:
+            self._map_undo_stack.append(self.map_array.copy())
+            self.map_array = self._map_redo_stack.pop()
+            self.map_dirty = True
+            self._update_map_pixmap()
+            self._refresh_map_item()
+            self._edit_timeline.append("map")
+            self._update_title()
+            self.statusBar().showMessage("已重做底图笔划", 2000)
+        elif self.model_scene and self.model_scene.redo():
             self.selected_feature_id = self.model_scene.selected_feature_id
+            self.selected_vertex = None
             self.refresh_scene()
+            self._edit_timeline.append("semantic")
+        else:
+            if domain != "semantic":
+                self._redo_timeline.append(domain)
+            self.statusBar().showMessage("没有可重做的操作", 2000)
 
     def save(self):
+        if self.map_dirty and not self._save_map_in_place():
+            return False
         if self.semantic_path is None:
             return self.save_as()
         return self._save_to(self.semantic_path)
@@ -1098,6 +1789,19 @@ class SemanticEditorWindow(QMainWindow):
         self.statusBar().showMessage(f"已保存 {semantic_path}", 5000)
         return True
 
+    def _save_map_in_place(self):
+        if self.map_array is None or self.map_path is None or self.map_metadata is None:
+            return False
+        try:
+            save_nav2_map_image(self.map_path, self.map_metadata, self.map_array)
+        except OSError as exc:
+            QMessageBox.critical(self, "底图保存失败", str(exc))
+            return False
+        self.map_dirty = False
+        self._update_title()
+        self.statusBar().showMessage(f"已保存底图 {self.map_path}", 5000)
+        return True
+
     def reload(self):
         if not self._confirm_discard_changes():
             return
@@ -1141,21 +1845,71 @@ class SemanticEditorWindow(QMainWindow):
         if event.key() in {Qt.Key_Return, Qt.Key_Enter}:
             self.graphics_scene.finish_drawing()
             return
+        if event.key() == Qt.Key_Backspace:
+            if self.graphics_scene.remove_last_draw_point():
+                return
+        direction = {
+            Qt.Key_Left: (-1.0, 0.0),
+            Qt.Key_Right: (1.0, 0.0),
+            Qt.Key_Up: (0.0, -1.0),
+            Qt.Key_Down: (0.0, 1.0),
+        }.get(event.key())
+        if direction and self._nudge_selected_vertex(*direction, fine=bool(event.modifiers() & Qt.ShiftModifier)):
+            return
         super().keyPressEvent(event)
+
+    def _nudge_selected_vertex(self, delta_x, delta_y, fine=False):
+        if self.read_only or self.tool != "select" or self.selected_vertex is None:
+            return False
+        feature_id, vertex_key = self.selected_vertex
+        feature = self.model_scene.get(feature_id)
+        if feature is None:
+            return False
+        if vertex_key == "yaw":
+            yaw = float(feature.properties.get("yaw", 0.0))
+            coordinate = [
+                feature.coordinates[0] + 0.8 * math.cos(yaw),
+                feature.coordinates[1] + 0.8 * math.sin(yaw),
+            ]
+        elif feature.geometry_type == "Polygon":
+            coordinate = feature.coordinates[0][vertex_key]
+        elif feature.geometry_type == "LineString":
+            coordinate = feature.coordinates[vertex_key]
+        else:
+            coordinate = feature.coordinates
+        point = self._world_point(coordinate)
+        scale = 0.2 if fine else 1.0
+        moved = QPointF(point.x() + delta_x * scale, point.y() + delta_y * scale)
+        if not self.graphics_scene.sceneRect().contains(moved):
+            return False
+        self._vertex_moved(feature_id, vertex_key, moved)
+        self.selected_vertex = (feature_id, vertex_key)
+        self.refresh_scene()
+        return True
 
     def closeEvent(self, event):
         if self._confirm_discard_changes():
+            self.stop_coverage_preview()
+            if self._preview_spin_timer is not None:
+                self._preview_spin_timer.stop()
+            if self._preview_node is not None:
+                self._preview_node.destroy_node()
+                self._preview_node = None
+            if self._preview_context is not None:
+                self._preview_context.shutdown()
+                self._preview_context = None
             event.accept()
         else:
             event.ignore()
 
     def _confirm_discard_changes(self):
-        if self.model_scene is None or not self.model_scene.dirty:
+        scene_dirty = self.model_scene is not None and self.model_scene.dirty
+        if not scene_dirty and not self.map_dirty:
             return True
         result = QMessageBox.question(
             self,
             "存在未保存修改",
-            "语义任务尚未保存。是否先保存？",
+            "底图或语义任务尚未保存。是否先保存？",
             QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
             QMessageBox.Cancel,
         )
@@ -1165,6 +1919,8 @@ class SemanticEditorWindow(QMainWindow):
 
     def _update_title(self):
         suffix = " [只读]" if self.read_only else ""
+        if self.map_dirty or (self.model_scene is not None and self.model_scene.dirty):
+            suffix += " *"
         map_id = self.model_scene.semantic_map.map_id if self.model_scene else "未加载"
         self.setWindowTitle(f"AGT 农业语义地图编辑器 · {map_id}{suffix}")
 
@@ -1193,15 +1949,21 @@ def parse_arguments(argv=None):
 
 def main(argv=None):
     arguments = parse_arguments(argv)
+    if not rclpy.ok():
+        rclpy.init(args=sys.argv)
     app = QApplication.instance() or QApplication(sys.argv)
-    window = SemanticEditorWindow(
-        defaults=EditorDefaults.from_yaml(arguments.config),
-        platform_profile_path=arguments.platform_profile or None,
-        map_path=arguments.map or None,
-        semantic_path=arguments.semantic_map or None,
-    )
-    window.show()
-    return app.exec_()
+    try:
+        window = SemanticEditorWindow(
+            defaults=EditorDefaults.from_yaml(arguments.config),
+            platform_profile_path=arguments.platform_profile or None,
+            map_path=arguments.map or None,
+            semantic_path=arguments.semantic_map or None,
+        )
+        window.show()
+        return app.exec_()
+    finally:
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

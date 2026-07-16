@@ -17,11 +17,18 @@
 - Nav2, perception, and future coverage validation must consume or be contract-tested against the selected platform profile.
 - Do not maintain a separate coverage-planning footprint or silently add a second safety margin.
 - Changes to verified vehicle dimensions require explicit approval and corresponding contract-test updates.
+- `greenhouse_ackermann` uses user-provided outer dimensions and a 1.5 m rear-axle-center turning radius; its geometric-center base reference and motion limits remain provisional until measured on the vehicle.
 
 ## Semantic Map Contract
 - Semantic geometry uses `frame_id: map`, metric coordinates, and ROS right-handed axes.
 - The versioned contract is `docs/interfaces/semantic_map_schema.md` plus `src/agt_ui_bridge/config/semantic_schema.yaml`.
 - Keep semantic GeoJSON separate from the base OccupancyGrid; never write semantic zones into the source PGM.
+- CloudCompare raster packaging for Qt5 annotation may create a provisional `runtime/maps/<map_id>/` Nav2 map bundle, but it must keep any missing Rasterize origin metadata explicit in `processing_record.yaml` and must not be presented as closed-loop ready until that metadata is recorded.
+- The project-owned semantic editor may edit only the existing Nav2 image referenced by the selected YAML through explicit trinary freehand/line tools; it must not merge semantic objects back into the base raster.
+- Semantic polygon authoring must reject self-intersecting completion without discarding the repairable draft, and completed geometry plus base-map strokes must remain undoable.
+- Semantic-editor route previews may derive temporary aisle centerlines between adjacent crop-row centerlines, but must not rewrite source GeoJSON, publish executable paths, or enable motion; the chosen row interpretation must be explicit in the UI.
+- Semantic-editor offline preview processes and subscriptions must share a dedicated per-editor ROS domain so stale preview nodes cannot contaminate the live robot graph or a later preview result.
+- Production annotated-row adaptation must honor `coverage.yaml:row_interpretation`; `crop_centerlines` derives adjacent aisle midlines transactionally, while missing/`direct_swaths` preserves the version-1 legacy behavior.
 - Versioned examples live under `docs/interfaces/examples/`; runtime semantic files live under `runtime/maps/<map_id>/semantic/` and are not committed.
 - Schema contract completion does not imply that coverage path repair or coverage execution is implemented.
 - Project-owned semantic data classes and file I/O under `agt_ui_bridge` are data-contract code, not third-party semantic algorithm migration.

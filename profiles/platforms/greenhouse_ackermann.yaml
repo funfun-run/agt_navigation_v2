@@ -1,0 +1,49 @@
+platform:
+  name: greenhouse_ackermann
+  kinematics: ackermann
+  footprint_frame: base_footprint
+  base_frame: base_link
+  geometry:
+    dimensions_source: user_provided
+    dimensions_verified_on_vehicle: false
+    reference_point_verified: false
+    reference_point_assumption: geometric_center
+    length: 0.840
+    width: 0.600
+    wheelbase: 0.600
+    wheel_track: 0.517
+    wheel_radius: 0.120
+    min_turning_radius: 1.500
+    steering:
+      turning_radius_reference: rear_axle_center
+      max_equivalent_steering_angle: 0.380506377112
+      max_equivalent_steering_angle_deg: 21.801409
+      max_inner_wheel_angle: 0.450187507241
+      max_inner_wheel_angle_deg: 25.793844
+      max_outer_wheel_angle: 0.328813665602
+      max_outer_wheel_angle_deg: 18.839635
+    # No implicit safety margin. Add clearance explicitly in navigation policy.
+    footprint:
+      - [0.420, 0.300]
+      - [0.420, -0.300]
+      - [-0.420, -0.300]
+      - [-0.420, 0.300]
+    navigation_footprint:
+      - [0.420, 0.300]
+      - [0.420, -0.300]
+      - [-0.420, -0.300]
+      - [-0.420, 0.300]
+  limits:
+    limits_verified_on_vehicle: false
+    max_forward_velocity: 0.50
+    max_reverse_velocity: 0.25
+    max_angular_velocity: 0.35
+    max_linear_acceleration: 0.30
+    max_linear_deceleration: 0.60
+    max_angular_acceleration: 0.50
+    max_angular_deceleration: 0.80
+  coverage_repair:
+    enabled: true
+    planner_id: CoverageRepairHybrid
+    planner_family: hybrid_a_star
+    allow_in_place_rotation: false

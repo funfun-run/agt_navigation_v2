@@ -163,6 +163,11 @@ def validate_task(semantic_map, coverage, context=None):
             "invalid_planning_mode",
             f"unsupported planning mode: {coverage.planning_mode}",
         )
+    if coverage.row_interpretation not in {"direct_swaths", "crop_centerlines"}:
+        report.add(
+            "invalid_row_interpretation",
+            "row_interpretation must be direct_swaths or crop_centerlines",
+        )
     if not isinstance(coverage.allow_reverse, bool):
         report.add("invalid_allow_reverse", "allow_reverse must be boolean")
     for field_name in ("robot_width", "operation_width"):

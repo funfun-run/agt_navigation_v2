@@ -106,6 +106,37 @@ def test_annotated_rows_mode_generates_humble_compatible_gml():
     assert all(line.attrib["srsName"] == "map" for line in lines)
 
 
+def test_crop_centerlines_are_converted_to_inter_row_swaths():
+    task = _task()
+    task.coverage.planning_mode = "annotated_rows"
+    task.coverage.row_interpretation = "crop_centerlines"
+    task.semantic_map.features = [
+        feature
+        for feature in task.semantic_map.features
+        if feature.feature_type != "row_centerline"
+    ]
+    for index, y_value in enumerate((5.0, 3.0, 1.0), start=1):
+        row = deepcopy(next(
+            feature
+            for feature in _task().semantic_map.features
+            if feature.feature_type == "row_centerline"
+        ))
+        row.id = f"crop_{index:02d}"
+        row.coordinates = [[1.0, y_value], [7.0, y_value]]
+        task.semantic_map.features.append(row)
+
+    request = prepare_coverage_request(task, _platform())
+    root = ET.fromstring(request.gml_text)
+    coordinates = [
+        item.text
+        for item in root.findall(
+            f"./Row/geometry/{{{GML_NAMESPACE}}}LineString/{{{GML_NAMESPACE}}}coordinates"
+        )
+    ]
+
+    assert coordinates == ["1,4 7,4", "1,2 7,2"]
+
+
 def test_versioned_annotated_rows_example_is_directly_convertible():
     request = prepare_coverage_request(
         load_semantic_task(ANNOTATED_ROWS_PATH), _platform()

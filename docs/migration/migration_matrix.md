@@ -8,7 +8,7 @@
 | 模块 | Phase | 当前状态 | 已验证范围 | 下一步 |
 | --- | --- | --- | --- | --- |
 | `agt_interfaces` | 1/8 | TASK-13/14 完成 | `ExecuteCoverageTask.action` 已生成并由 `/agt/coverage/execute` 消费；Python/C++ 类型、序列化和安装态导入通过 | 后续字段变更需兼容性评审，并同步服务端与客户端 |
-| `agt_description` | 2/8 | 离线完成 | 固定 TF、MK-mini/BUNKER profile、Xacro 展开、TF 单父节点和可配置 MID360 外参通过；BUNKER profile 已确立为 footprint 单一数据源 | 标定 `base_link -> lidar_link`，实测 BUNKER 基准高度和履带中心距，确认 `calibration_verified` |
+| `agt_description` | 2/8 | 离线完成 | 固定 TF、MK-mini/BUNKER profile、Xacro 展开、TF 单父节点和可配置 MID360 外参通过；新增温室阿克曼 canonical profile，记录用户提供几何、1.5 m 转弯半径和 Hybrid-A* repair 合同 | 实测温室车 `base_link` 相对后轴位置与运动限速；标定 `base_link -> lidar_link`，确认各平台几何校验状态 |
 | `agt_bringup` | 1/6/8 | TASK-15 完成 | 总控条件组合语义服务器、Keepout、覆盖 Action 和标注模式；路径前置校验、单一节点所有者及扩展录包合同通过 | 用真实地图验证 readiness 顺序、Action 关闭、异常退出和节点重启 |
 | `agt_sensor_adapters` | 3 | baseline 完成 | Livox 驱动已迁入，MID360 PointCloud2 到 CustomMsg 转换、统一 topic 和短 bag 回放通过 | 实机验证网络、QoS、频率、时间戳、丢包和长时间运行稳定性 |
 | `agt_mapping` | 3 | baseline 完成 | 指定 FAST-LIVO2 分支已 vendor 和编译；adapter、位姿/twist 外参换算、TF 与局部雷达帧点云回放通过 | 标定车辆外参，使用完整 bag 生成新旧轨迹、点云数量和数值精度对比报告 |
@@ -20,7 +20,7 @@
 | `agt_coverage_planning` | 8 | TASK-00~15 完成，TASK-16 部分 | 外部锁定依赖已构建；当前大棚任务完成 6 种路线/连接/方向候选，彩色 Marker、几何时间排名和 JSON 报告通过；面积指标对零长度 SWATH 保持 null | 修复上游零长度 SWATH，恢复 authoritative 覆盖率/重叠率；再实现 CUSTOM 跨行排序和专用鱼尾策略 |
 | `agt_safety` | 6 | baseline 完成 | BUNKER 履带仲裁、手动优先、限速、输入超时、急停锁存和复位保持禁用的合成消息回归通过 | 架空履带验证方向和急停，再完成低速制动距离、进程退出和通信中断验收 |
 | `agt_chassis` | 6 | baseline 完成 | 官方 `bunker_ros2`、状态桥接、TF 隔离和双层命令 watchdog 已接入并离线构建 | CAN 实机验证协议版本、轮速里程计、错误码、方向、断连归零和长时间通讯稳定性 |
-| `agt_ui_bridge` | 8 | TASK-15 总控接入完成 | enabled exclusion/keepout 与 field 外部生成对齐 mask；语义服务器和标注编辑器已由总控互斥条件启动 | 使用真实地图验证语义切换、服务器异常和 fail-open 操作门禁 |
+| `agt_ui_bridge` | 8 | TASK-15 总控接入完成；新增 CloudCompare 修图与同窗路线预览 | Qt5 编辑器支持三值修图、撤销、自交保护和顶点精调；路线面板可显式选择 polygon、标注线即道路或相邻作物行派生道路，在画布叠加不可执行预览及统计，并使用专属 ROS Domain 隔离陈旧预览状态 | 使用真实地图验证行间道路推导、预览进程生命周期、错误状态、底图与语义撤销重做和 fail-open 操作门禁 |
 | `agt_experiment_manager` | 7 | 仅骨架 | package、profile 和 runtime 目录边界已建立 | 实现配置合并、Git/参数快照、产物命名、失败恢复和一键复现实验 |
 | `agt_evaluation` | 7 | 仅骨架 | package 和指标职责边界已建立 | 实现轨迹、重定位、导航、地图质量和资源占用指标，并生成可复现报告 |
 

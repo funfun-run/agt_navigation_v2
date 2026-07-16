@@ -5,6 +5,7 @@ import math
 import xml.etree.ElementTree as ET
 
 from agt_ui_bridge.map_transform import MapGeometry
+from agt_ui_bridge.coverage_preview import CoveragePreviewError, derive_inter_row_aisles
 from agt_ui_bridge.semantic_validation import ValidationContext, validate_task
 
 
@@ -100,6 +101,18 @@ def prepare_coverage_request(task, platform):
     )
 
     if coverage.planning_mode == "annotated_rows":
+        if coverage.row_interpretation == "crop_centerlines":
+            try:
+                derived_map = derive_inter_row_aisles(task.semantic_map)
+            except CoveragePreviewError as exc:
+                raise CoverageAdapterError(
+                    "inter_row_aisle_derivation_failed", str(exc), "row_centerline"
+                ) from exc
+            rows = [
+                feature
+                for feature in derived_map.features
+                if feature.enabled and feature.feature_type == "row_centerline"
+            ]
         if len(rows) < 2:
             raise CoverageAdapterError(
                 "insufficient_annotated_rows",

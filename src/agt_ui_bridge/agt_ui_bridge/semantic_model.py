@@ -102,6 +102,7 @@ class CoverageParameters:
     headland_width: float
     allow_reverse: bool
     preferred_swath_angle: float
+    row_interpretation: str = "direct_swaths"
     schema_version: str = "1.0"
     frame_id: str = "map"
     extra: dict = field(default_factory=dict)
@@ -122,8 +123,9 @@ class CoverageParameters:
             "headland_width",
             "allow_reverse",
             "preferred_swath_angle",
+            "row_interpretation",
         }
-        missing = known_fields - set(data)
+        missing = known_fields - {"row_interpretation"} - set(data)
         if missing:
             raise ValueError(
                 "coverage parameters missing: " + ", ".join(sorted(missing))
@@ -142,6 +144,7 @@ class CoverageParameters:
             headland_width=float(data["headland_width"]),
             allow_reverse=data["allow_reverse"],
             preferred_swath_angle=float(data["preferred_swath_angle"]),
+            row_interpretation=str(data.get("row_interpretation", "direct_swaths")),
             extra={key: deepcopy(value) for key, value in data.items() if key not in known_fields},
         )
 
@@ -162,6 +165,7 @@ class CoverageParameters:
                 "headland_width": self.headland_width,
                 "allow_reverse": self.allow_reverse,
                 "preferred_swath_angle": self.preferred_swath_angle,
+                "row_interpretation": self.row_interpretation,
             }
         )
         return result

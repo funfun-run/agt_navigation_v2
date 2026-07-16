@@ -72,6 +72,7 @@ coverage:
     - allow_reverse
     - preferred_swath_angle
   planning_mode_values: [polygon, annotated_rows]
+  row_interpretation_values: [direct_swaths, crop_centerlines]
   sha256_pattern: "^[0-9a-f]{64}$"
   constraints:
     robot_width: {exclusive_minimum: 0.0, source: platform_profile}
