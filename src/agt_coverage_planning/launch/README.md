@@ -14,3 +14,10 @@ Coverage Task Server。Validator 还需要 Nav2 发布
 `coverage_preview.launch.py` 是纯离线可视化入口，组合基础 map server、语义服务器、覆盖规划和
 专用 RViz，并固定 `plan_on_start:=true`、`execution_enabled:=false`。它只显示规划结果，不启动
 定位、Nav2 controller、安全链或底盘；`path_validated` 仍需另行提供 global costmap 才会产生。
+该入口同时启动 metrics-only 时间估算节点，默认消费 `path_preview`；可用
+`simulation_report_path:=...` 将最新报告原子写入指定 JSON 文件。
+
+`coverage_comparison.launch.py` 是独立的纯离线多候选入口，只组合 map server、语义服务器、
+一个 polygon Coverage Server、候选比较器和 RViz。它不会启动 adapter 执行输出、Validator、
+repair、Coverage Task Server、Nav2 control、安全层或底盘。`variants_file` 默认读取
+`config/coverage_variants.yaml`，`report_path:=...` 可原子保存稳定键序 JSON。

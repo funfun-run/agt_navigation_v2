@@ -1,0 +1,38 @@
+schema_version: '1.0'
+variants:
+  - id: adjacent_reeds_shepp
+    label: Adjacent rows, reverse allowed
+    route_mode: BOUSTROPHEDON
+    path_mode: REEDS_SHEPP
+    swath_angle_offset_deg: 0.0
+
+  - id: snake_reeds_shepp
+    label: Snake ordering, reverse allowed
+    route_mode: SNAKE
+    path_mode: REEDS_SHEPP
+    swath_angle_offset_deg: 0.0
+
+  - id: spiral_reeds_shepp
+    label: Spiral ordering, reverse allowed
+    route_mode: SPIRAL
+    path_mode: REEDS_SHEPP
+    spiral_n: 4
+    swath_angle_offset_deg: 0.0
+
+  - id: adjacent_dubin
+    label: Adjacent rows, forward only
+    route_mode: BOUSTROPHEDON
+    path_mode: DUBIN
+    swath_angle_offset_deg: 0.0
+
+  - id: adjacent_plus_15deg
+    label: Adjacent rows, direction plus 15 deg
+    route_mode: BOUSTROPHEDON
+    path_mode: REEDS_SHEPP
+    swath_angle_offset_deg: 15.0
+
+  - id: adjacent_minus_15deg
+    label: Adjacent rows, direction minus 15 deg
+    route_mode: BOUSTROPHEDON
+    path_mode: REEDS_SHEPP
+    swath_angle_offset_deg: -15.0

@@ -49,6 +49,9 @@
 - `/agt/coverage/path_raw` is never executable; only TASK-10 may publish a non-empty `/agt/coverage/path_validated` after all current checks pass.
 - Offline coverage preview may compose a map server, semantic server, Coverage Server, and RViz only. It must force execution disabled and must not start localization, Nav2 control, safety, or chassis nodes.
 - `/agt/coverage/path_preview` may expose a basically valid Coverage Server path for visualization when component semantics fail. It must be cleared before each request and must never feed validation, repair, execution, Nav2, or chassis control.
+- Offline time simulation may consume preview or semantic coverage paths and canonical platform motion limits, but it is metrics-only: it must not publish TF, velocity, Nav2 goals, safety commands, or chassis commands. Missing/mismatched path semantics must be reported as geometric fallback, never fabricated as work/non-work metrics.
+- Offline variant comparison may call one Coverage Server sequentially for multiple route/path/angle candidates, but it may publish only visualization markers, diagnostics, and metrics reports. It must not publish any candidate as `nav_msgs/Path` or feed validation, repair, execution, Nav2, safety, or chassis control.
+- Geometric candidate ranking is never execution approval. Coverage and overlap metrics may be computed only after the authoritative PathComponents pass the complete TASK-11 semantic reconstruction contract; otherwise those fields must remain null and every candidate must remain `eligible_for_execution=false`.
 
 ## Coverage Path Validation Contract
 - TASK-10 consumes `/agt/coverage/path_raw`, `/global_costmap/costmap`, and `/global_costmap/published_footprint`, all in `map` frame.

@@ -91,6 +91,41 @@ RViz 中红色为 `/agt/coverage/path_preview`，青色为通过 SWATH/CONNECTIO
 同时包含零长度 SWATH，因此状态会报告 `zero_length_swath`，青色重建路径和绿色验证路径为空；
 这是执行链主动拒绝不完整语义的预期行为，不影响先查看红色服务器路线。
 
+离线预览会同步发布运行时间估算。另开终端查看：
+
+```bash
+source /opt/ros/humble/setup.bash
+source "$HOME/agt_coverage_ws/install/setup.bash"
+source install/setup.bash
+ros2 topic echo /agt/coverage/simulation_report --once
+```
+
+如需保存报告，在 launch 命令增加
+`simulation_report_path:="$(realpath -m runtime/results/coverage_time.json)"`。估算使用 BUNKER
+profile 的前进/倒车、线/角速度及加减速度上限，考虑曲率限速、原地旋转和换向停车，但不模拟
+履带打滑、土壤阻力和控制误差。当前 `path_preview` 没有通过 PathComponents 语义重建，因此
+报告使用 `geometric_fallback`，作业/非作业拆分字段为 null。
+
+当前路线策略固定为 `BOUSTROPHEDON` 相邻行往返；`allow_reverse=true` 使用 Reeds-Shepp，可能
+产生前进-倒车的鱼尾式连接，`false` 使用仅前进 Dubins。跨行作业需要显式定义行选择与排序，
+再接 OpenNav 的 `SNAKE`/`CUSTOM` 或 annotated rows `skip_ids`，目前不能仅靠拖动作业方向线实现。
+
+生产适配器仍固定使用上述语义任务策略；多方案筛选使用独立、不可执行的离线入口：
+
+```bash
+ros2 launch agt_coverage_planning coverage_comparison.launch.py \
+  map:="$(realpath runtime/maps/mid360_map/mid360_map.yaml)" \
+  semantic_map:="$(realpath runtime/maps/mid360_map/semantic/semantic_map.geojson)" \
+  platform_profile:="$(realpath profiles/platforms/bunker.yaml)" \
+  report_path:="$(realpath -m runtime/results/mid360_coverage_comparison.json)"
+```
+
+RViz 的 `Coverage Candidates` 用不同颜色叠加所有成功候选。完整报告可用
+`python3 -m json.tool runtime/results/mid360_coverage_comparison.json` 查看，也可订阅
+`/agt/coverage/comparison/report`。几何排名不进入 Validator 或执行链，所有候选固定
+`eligible_for_execution=false`。只有 PathComponents 完整通过语义重建时才计算覆盖率、重叠率
+和漏作面积；否则这些字段为 null。
+
 若自动规划尚未返回，可在服务器 active 后手动触发并查看诊断：
 
 ```bash
@@ -134,6 +169,11 @@ ros2 action send_goal --feedback /agt/coverage/execute \
 | `/agt/coverage/repair_report` | `std_msgs/msg/String`，稳定键序 JSON |
 | `/agt/coverage/execute` | `agt_interfaces/action/ExecuteCoverageTask` |
 | `/agt/coverage/task_status` | `diagnostic_msgs/msg/DiagnosticArray` |
+| `/agt/coverage/simulation_report` | `std_msgs/msg/String`，metrics-only JSON |
+| `/agt/coverage/comparison/markers` | `visualization_msgs/msg/MarkerArray`，只读候选曲线 |
+| `/agt/coverage/comparison/report` | `std_msgs/msg/String`，稳定键序候选排名 JSON |
+| `/agt/coverage/comparison/status` | `diagnostic_msgs/msg/DiagnosticArray` |
+| `/agt/coverage/compare` | `std_srvs/srv/Trigger` |
 
 输出均为 `map` frame。适配器会拒绝空路径、错误 frame 和无效 quaternion，并在 status 的
 `error_code`、`object_id`、`detail` 中返回明确原因。Validator 默认把未知和地图外空间视为碰撞，

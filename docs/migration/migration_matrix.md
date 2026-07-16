@@ -3,7 +3,7 @@
 更新时间：2026-07-15。
 
 状态按“代码迁移、离线验证、数据回放、实机验收”分级记录。当前离线回归为
-`185 passed`；离线通过不代表定位精度、导航性能或实车安全验收通过。
+`200 passed`；离线通过不代表定位精度、导航性能或实车安全验收通过。
 
 | 模块 | Phase | 当前状态 | 已验证范围 | 下一步 |
 | --- | --- | --- | --- | --- |
@@ -17,7 +17,7 @@
 | `agt_localization_fusion` | 6 | 仅骨架 | package 和领域边界已建立 | 定义融合状态与诊断接口，接入 LIO、轮速和 IMU；后续扩展 RTK/UWB 与失效降级 |
 | `agt_perception` | 6/8 | baseline 完成 | 已实现 base frame 高度/量程/车体裁剪的局部障碍点云，并接入 Nav2 costmap 和 Collision Monitor；裁剪边界已由契约测试约束到 BUNKER profile | 使用典型场景点云评估地面/障碍精度、误检漏检和频率，再增加可靠地面分割 |
 | `agt_navigation` | 6/8 | TASK-07 离线完成 | 原 1 m 闭环继续通过；FilterInfo、global `Static -> Keepout -> Inflation`、跨禁行墙规划失败及 toggle 后恢复规划已验证 | 使用真实语义地图与重定位验证边界误差、切换时延、规划成功率和窄通道通过性 |
-| `agt_coverage_planning` | 8 | TASK-00~15 完成 | 外部锁定依赖已构建；离线预览用当前大棚任务生成 679 个服务器路径姿态，且以独立非执行 topic 显示 | 分析并修复上游零长度 SWATH 组件，恢复语义重建与 Validator；TASK-16 增加覆盖质量统计、任务日志与可复现报告 |
+| `agt_coverage_planning` | 8 | TASK-00~15 完成，TASK-16 部分 | 外部锁定依赖已构建；当前大棚任务完成 6 种路线/连接/方向候选，彩色 Marker、几何时间排名和 JSON 报告通过；面积指标对零长度 SWATH 保持 null | 修复上游零长度 SWATH，恢复 authoritative 覆盖率/重叠率；再实现 CUSTOM 跨行排序和专用鱼尾策略 |
 | `agt_safety` | 6 | baseline 完成 | BUNKER 履带仲裁、手动优先、限速、输入超时、急停锁存和复位保持禁用的合成消息回归通过 | 架空履带验证方向和急停，再完成低速制动距离、进程退出和通信中断验收 |
 | `agt_chassis` | 6 | baseline 完成 | 官方 `bunker_ros2`、状态桥接、TF 隔离和双层命令 watchdog 已接入并离线构建 | CAN 实机验证协议版本、轮速里程计、错误码、方向、断连归零和长时间通讯稳定性 |
 | `agt_ui_bridge` | 8 | TASK-15 总控接入完成 | enabled exclusion/keepout 与 field 外部生成对齐 mask；语义服务器和标注编辑器已由总控互斥条件启动 | 使用真实地图验证语义切换、服务器异常和 fail-open 操作门禁 |
@@ -35,6 +35,6 @@
 | Phase 4：重定位 | 代码已落地 | 使用同源全局 PCD 完成回放精度与失败恢复验收 |
 | Phase 5：地图处理 | baseline 可用 | 完成完整 bag 地图质量对比并固定导航地图参数 |
 | Phase 6：Nav2、底盘与安全 | 离线 baseline 完成 | 完成真实地图导航、CAN、硬件急停和低速制动验收 |
-| Phase 7：实验与评测 | 尚未实现 | 完成配置快照、自动记录、指标计算和报告生成 |
-| Phase 8：Qt5 与覆盖规划 | TASK-00~15 完成 | 进入 TASK-16，实现记录、覆盖质量指标与可复现报告 |
+| Phase 7：实验与评测 | 部分完成 | 补齐配置/Git 快照、执行指标和统一报告生成 |
+| Phase 8：Qt5 与覆盖规划 | TASK-00~15 完成，TASK-16 部分 | 修复零长度 SWATH 后启用面积指标，再完成可复现执行报告 |
 | Phase 9：扩展研究 | 未开始 | 基础导航闭环稳定后再接入 RTK/UWB、语义点云和其他雷达 |

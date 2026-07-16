@@ -41,6 +41,10 @@
 - `/agt/coverage/path_repaired`: TASK-12 成功替换无效 CONNECTION 并最终复验后的 Path
 - `/agt/coverage/repair_report`: 修复数量、耗时、保留 swath ID 和最终验证 JSON
 - `/agt/coverage/task_status`: TASK-14 当前阶段、swath 进度和剩余距离诊断
+- `/agt/coverage/simulation_report`: 离线运动学时间、路径长度、换向和语义分段统计 JSON
+- `/agt/coverage/comparison/markers`: 多候选路线的只读彩色 MarkerArray，不提供可执行 Path
+- `/agt/coverage/comparison/report`: 多候选长度、时间、方向、语义和面积指标的稳定键序 JSON
+- `/agt/coverage/comparison/status`: 离线候选比较进度与错误诊断
 
 ## 语义地图服务
 - `/agt/map/semantic/load`: `nav2_msgs/srv/LoadMap`，输入 GeoJSON 路径或 `file://` URL
@@ -55,6 +59,7 @@
 - annotated rows action：`/agt/coverage/rows/compute_coverage_path`
 - `/agt/coverage/repair`: `std_srvs/srv/Trigger`，显式修复当前无效连接段
 - `/agt/coverage/execute`: `agt_interfaces/action/ExecuteCoverageTask`，串联语义加载、规划、验证、可选修复和 Nav2 `FollowPath`
+- `/agt/coverage/compare`: `std_srvs/srv/Trigger`，重新执行离线多候选比较
 
 转换、GML、Validator、状态和安全边界见 [`coverage_planning.md`](coverage_planning.md)，统一任务
 接口字段和代码生成边界见 [`coverage_task_action.md`](coverage_task_action.md)。

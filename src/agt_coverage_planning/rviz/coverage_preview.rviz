@@ -126,6 +126,16 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /agt/coverage/footprint_markers
       Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Coverage Candidates
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /agt/coverage/comparison/markers
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 28; 31; 35

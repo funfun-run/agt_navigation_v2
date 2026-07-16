@@ -16,6 +16,8 @@ def test_preview_launch_is_offline_and_fail_closed():
     assert '"execution_enabled": "false"' in source
     assert 'package="nav2_map_server"' in source
     assert 'package="rviz2"' in source
+    assert 'executable="coverage_time_simulator.py"' in source
+    assert '"path_topic": "/agt/coverage/path_preview"' in source
     assert "nav2_controller" not in source
     assert "agt_chassis" not in source
     assert "agt_safety" not in source

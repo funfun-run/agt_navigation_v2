@@ -14,6 +14,13 @@ from .path_validator import (
     footprint_shape_matches,
     validate_path,
 )
+from .time_simulation import (
+    MotionLimits,
+    SimulationPose,
+    TimeSimulationError,
+    TimeSimulationReport,
+    simulate_path_time,
+)
 from .path_semantics import (
     CONNECTION,
     SWATH,
@@ -51,6 +58,11 @@ __all__ = [
     "ValidatorConfig",
     "footprint_shape_matches",
     "validate_path",
+    "MotionLimits",
+    "SimulationPose",
+    "TimeSimulationError",
+    "TimeSimulationReport",
+    "simulate_path_time",
     "CONNECTION",
     "SWATH",
     "PathSemanticsError",

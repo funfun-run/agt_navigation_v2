@@ -41,6 +41,7 @@ Humble Row Coverage Server 只接受 GML 文件。临时文件位于系统临时
 | `/agt/coverage/repair_report` | `std_msgs/msg/String` | 修复数量、耗时、ID、长度和最终验证 JSON |
 | `/agt/coverage/execute` | `agt_interfaces/action/ExecuteCoverageTask` | 可取消的覆盖任务总动作，只通过 Nav2 执行最终路径 |
 | `/agt/coverage/task_status` | `diagnostic_msgs/msg/DiagnosticArray` | 当前任务阶段、swath 进度和剩余距离 |
+| `/agt/coverage/simulation_report` | `std_msgs/msg/String` | 离线路径运行时间估算，稳定键序 JSON |
 
 两个 lifecycle server 分别位于 `/agt/coverage/polygon` 和 `/agt/coverage/rows` namespace，避免
 同名 `compute_coverage_path` action 冲突。每个 server 使用同 namespace 的 lifecycle manager，
@@ -161,3 +162,32 @@ SWATH、headland 和 keepout。`path_preview` 可在 PathComponents 语义重建
 但不得输入 Validator、repair、Action、Nav2 或底盘；每次新请求前必须先清空，防止显示旧结果。
 没有 global costmap 时不产生 `path_validated`，不能把预览成功解释为
 路径已通过完整 footprint 安全验收。
+
+## 离线时间仿真
+
+`coverage_time_simulator.py` 默认消费 `/agt/coverage/path_preview`，从 canonical platform profile
+读取前进/倒车速度、线速度加减速、角速度和角加减速上限。模型对每个 Path 区间计算距离、航向
+变化、前进/倒车和曲率，以 `min(线速度上限, 最大角速度/曲率)` 限速；起终点、纯旋转和前后换向
+点速度固定为零，再执行前向加速和后向减速约束，使用梯形/三角速度曲线累计预计运行时间。
+
+报告至少包含总/前进/倒车路径长度、纯旋转角、换向次数、估计转弯数和运动时间。只有
+`path_semantics` 指纹与输入 Path 完全匹配时才计算 SWATH 作业长度/时间和 CONNECTION 非作业
+长度/时间；否则 `classification_source=geometric_fallback`，这些字段为 null。该模型不包含履带
+打滑、土壤阻力、电机动态、控制跟踪误差和停车作业时间，因此属于确定性运动学估算，不是实车
+耗时承诺或 Gazebo 动力学结果。
+
+## 离线多候选比较
+
+`coverage_comparison.launch.py` 顺序复用一个 polygon Coverage Server，对
+`coverage_variants.yaml` 中的路线排序、连接模型和作业方向候选逐一规划。默认比较相邻行
+`BOUSTROPHEDON`、`SNAKE`、`SPIRAL`、仅前进 Dubins、允许倒车 Reeds-Shepp，以及作业方向
+正负 15 度。它只发布 `/agt/coverage/comparison/markers`、status 和 JSON report，不发布任何
+候选 `nav_msgs/Path`，也不启动 Validator、repair、Nav2 control、安全层或底盘。
+
+几何排名依次使用预计运动时间、总路径长度和稳定 candidate ID，只用于离线筛选，永远不代表
+可执行。报告中的所有 candidate 固定 `eligible_for_execution=false`。只有 PathComponents 完整
+通过 TASK-11 SWATH/CONNECTION 重建后，才根据 authoritative SWATH 中心线和
+`coverage.yaml.operation_width` 计算面积：`coverage_rate=SWATH 扫掠并集面积/可作业面积`，
+`overlap_rate=(各 SWATH 扫掠面积之和-并集面积)/可作业面积`，`missed_area` 是可作业面积减去
+扫掠并集。零长度 SWATH、重建长度不匹配或语义缺失时，所有面积字段为 null，不能用整条
+Path buffer 伪造作业覆盖率。
