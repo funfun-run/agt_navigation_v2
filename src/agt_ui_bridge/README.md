@@ -26,45 +26,49 @@ source /opt/ros/humble/setup.bash
 topology_msgs，产物写入 `build/ros_qt5_gui_app`。源码固定在上游提交 `b0825e3`，构建产物
 不会提交 Git。
 
-当前机器旧工作区已有可运行版本；若新版本尚未构建，启动脚本会临时回退到
-`/home/yangxuan/ros2_ws/src/Ros_Qt5_Gui_App/build`。
+启动脚本只使用本仓库构建产物，找不到时会提示执行
+`tools/build_ros_qt5_gui_app.sh`。如需显式指定构建或 runtime 根目录，可设置
+`ROS_QT5_GUI_BUILD_DIR` 和 `ROS_QT5_GUI_RUNTIME_DIR`。
 
 ## 启动
 
 ```bash
 source /opt/ros/humble/setup.bash
 source install/setup.bash
-ros2 launch agt_ui_bridge ros_qt5_gui.launch.py
+ros2 launch agt_ui_bridge ros_qt5_gui.launch.py profile:=mapping
+ros2 launch agt_ui_bridge ros_qt5_gui.launch.py profile:=navigation
 ```
 
-首次启动会将 V2 默认配置复制到
-`runtime/gui/ros_qt5_gui_app/config.json`。GUI 中修改的界面和 topic 配置只保存在 runtime，
-不会污染 vendor 源码。需要恢复仓库默认配置时执行：
+首次启动会把对应模板复制到 profile 独立目录：
+`runtime/gui/ros_qt5_gui_app/mapping/config.json` 或
+`runtime/gui/ros_qt5_gui_app/navigation/config.json`。GUI 修改只保存在各自 runtime，互不覆盖，
+也不会污染 vendor 源码。需要恢复仓库默认配置时执行：
 
 ```bash
-ros2 run agt_ui_bridge start_ros_qt5_gui_app.sh --reset-config
+ros2 run agt_ui_bridge start_ros_qt5_gui_app.sh \
+  --profile navigation --reset-config
 ```
 
 ## V2 默认映射
 
-- 全局地图：`/agt/map/global_occupancy`
+- mapping 地图：`/agt/map/mapping_occupancy`
+- navigation 地图：`/agt/map/global_occupancy`
 - 机器人里程计：`/agt/mapping/odometry`
 - 重定位初值：`/initialpose`
 - 导航目标：`/goal_pose`
 - 手动速度：`/agt/cmd_vel_manual`
 - 全局/局部路径：`/plan`、`/local_plan`
 - 全局/局部代价地图：`/global_costmap/costmap`、`/local_costmap/costmap`
-- 机器人 frame：`base_link`
-- GUI 显示 frame：`odom`（建图阶段）
+- 机器人 frame：`base_footprint`
+- GUI 显示 frame：mapping 为 `odom`，navigation 为 `map`
 - 拓扑地图：`/agt/map/topology`、`/agt/map/topology/update`
 
 目前 `/goal_pose` 仍是统一输出接口，导航模块完成后接入 Nav2 action；手动速度已经接入
 `agt_safety -> agt_chassis`，但必须先显式使能安全层。GUI 可直接打开、编辑并保存 PGM/YAML；保存后的导航地图放在
 `runtime/maps/`，下一次启动 map server 时使用对应 YAML。
 
-默认 `FixedFrameId=odom` 与 FAST-LIVO2 建图链一致，避免尚未启动重定位时缺少
-`map -> odom` 而持续产生 TF 警告。进入重定位/导航阶段并确认该 TF 已发布后，将
-`runtime/gui/ros_qt5_gui_app/config.json` 中的 `FixedFrameId` 改为 `map`。
+mapping profile 的 `FixedFrameId=odom` 与 FAST-LIVO2 建图链一致；navigation profile 固定为
+`map`，并要求 NDT/ICP 已发布 `map -> odom`。
 
 ## 备用工具
 

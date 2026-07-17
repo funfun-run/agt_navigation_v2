@@ -1,10 +1,7 @@
 {
   "channel_config": {
     "channel_type": "ros2",
-    "rosbridge_config": {
-      "ip": "127.0.0.1",
-      "port": "9090"
-    }
+    "rosbridge_config": {"ip": "127.0.0.1", "port": "9090"}
   },
   "display_config": [
     {"display_name": "GoalPose", "topic": "/goal_pose", "visible": true},
@@ -12,27 +9,19 @@
     {"display_name": "kOccupancyMap", "topic": "/agt/map/global_occupancy", "visible": true},
     {"display_name": "kLocalCostMap", "topic": "/local_costmap/costmap", "visible": true},
     {"display_name": "kGlobalCostMap", "topic": "/global_costmap/costmap", "visible": true},
-    {"display_name": "kLaserScan", "topic": "/scan", "visible": true},
     {"display_name": "kGlobalPath", "topic": "/plan", "visible": true},
     {"display_name": "kLocalPath", "topic": "/local_plan", "visible": true},
     {"display_name": "kRobotPose", "topic": "/agt/mapping/odometry", "visible": true},
     {"display_name": "kSetRobotSpeed", "topic": "/agt/cmd_vel_manual", "visible": true},
-    {"display_name": "kBatteryState", "topic": "/battery", "visible": true},
     {"display_name": "kDiagnostic", "topic": "/diagnostics", "visible": true},
-    {"display_name": "kRobotFootprint", "topic": "/local_costmap/published_footprint", "visible": true},
-    {"display_name": "kTopologyMap", "topic": "/agt/map/topology", "visible": true},
-    {"display_name": "kTopologyMapUpdate", "topic": "/agt/map/topology/update", "visible": true}
+    {"display_name": "kRobotFootprint", "topic": "/local_costmap/published_footprint", "visible": true}
   ],
-  "images": [
-    {"enable": false, "location": "front", "topic": "/agt/sensors/camera/front/image_raw"}
-  ],
+  "images": [],
   "key_value": {
     "BaseFrameId": "base_footprint",
     "FixedFrameId": "map"
   },
-  "map_config": {
-    "path": ""
-  },
+  "map_config": {"path": ""},
   "robot_shape_config": {
     "color": "0x00000FF",
     "is_ellipse": false,

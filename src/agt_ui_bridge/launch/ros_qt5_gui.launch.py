@@ -9,7 +9,14 @@ from launch_ros.parameter_descriptions import ParameterValue
 def generate_launch_description():
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                "profile", default_value="navigation", choices=["mapping", "navigation"]
+            ),
             DeclareLaunchArgument("start_map_io_bridge", default_value="true"),
+            DeclareLaunchArgument(
+                "source_map_topic", default_value="/agt/map/global_occupancy"
+            ),
+            DeclareLaunchArgument("map_frame_id", default_value="map"),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             Node(
                 package="agt_ui_bridge",
@@ -21,12 +28,21 @@ def generate_launch_description():
                     {
                         "use_sim_time": ParameterValue(
                             LaunchConfiguration("use_sim_time"), value_type=bool
-                        )
+                        ),
+                        "source_map_topic": LaunchConfiguration("source_map_topic"),
+                        "frame_id": LaunchConfiguration("map_frame_id"),
                     }
                 ],
             ),
             ExecuteProcess(
-                cmd=["ros2", "run", "agt_ui_bridge", "start_ros_qt5_gui_app.sh"],
+                cmd=[
+                    "ros2",
+                    "run",
+                    "agt_ui_bridge",
+                    "start_ros_qt5_gui_app.sh",
+                    "--profile",
+                    LaunchConfiguration("profile"),
+                ],
                 output="screen",
             ),
         ]
