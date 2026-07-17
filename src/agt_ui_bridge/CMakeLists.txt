@@ -30,6 +30,9 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_semantic_map_server test/test_semantic_map_server.py)
   ament_add_pytest_test(test_semantic_rasterizer test/test_semantic_rasterizer.py)
   ament_add_pytest_test(test_coverage_preview test/test_coverage_preview.py)
+  ament_add_pytest_test(
+    test_ros_qt5_gui_profiles test/test_ros_qt5_gui_profiles.py
+  )
 endif()
 
 ament_package()
