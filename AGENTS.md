@@ -1,14 +1,21 @@
 # AGENTS.md
 
 ## Scope
-- This repository is the Phase 1 skeleton for `agt_navigation_v2`.
-- Only create architecture docs, package skeletons, interface stubs, tests, and dependency manifests.
-- Do not migrate third-party algorithm source code into this repository during Phase 1.
+- Current stage: `Bunker Qt5 FAST-LIO Navigation Baseline Integration`.
+- Integrate one Bunker baseline data chain at a time: MID360/FAST-LIVO2 mapping,
+  2D map production, Qt5 operation, map persistence, PCD relocalization, Nav2,
+  safety, and chassis output.
+- Semantic-map, Keepout, Fields2Cover, and coverage-planning code stays present but
+  is not developed or refactored in this stage.
 
 ## Hard Rules
 - Migrate one module or one data chain at a time.
 - Do not hardcode usernames, workspace paths, device paths, or map paths.
 - Do not allow multiple nodes to publish the same TF edge.
+- Do not modify upstream source under `third_party/ros_qt5_gui_app`.
+- Do not bypass `agt_safety` or publish GUI/navigation velocity directly to the
+  Bunker driver.
+- Semantic-map and coverage-planning launch arguments must default to `false`.
 - Do not modify validated parameters or datasets from the legacy repository without explicit approval.
 - Every change that affects architecture or interfaces must update `docs/`, this file, and `docs/migration/migration_matrix.md`.
 
@@ -110,17 +117,6 @@
 - `annotation_mode` selects the project-owned semantic editor instead of the vendor operator GUI and must keep coverage execution disabled.
 - Process startup order is not readiness. Motion procedures must verify map/localization, semantic `LOADED`, mask, global costmap, coverage server and `agt_safety` readiness before execution.
 - Coverage components remain in the same launch process tree as Nav2 and safety. Normal shutdown must terminate their Action Servers and rely on the safety/chassis watchdog chain to zero commands; never document `kill -9` as a supported shutdown.
-
-## Phase 1 Allowed Work
-- Create repository directories and ROS 2 package skeletons.
-- Define TF, topic, message, service, and action contracts.
-- Add package READMEs, launch placeholders, config placeholders, and tests.
-- Add `nav_dependencies.repos`, `.gitignore`, and CI placeholders.
-
-## Phase 1 Forbidden Work
-- Copy FAST-LIVO2, ICP, NDT, Nav2 tuning, Qt project, or semantic model code here.
-- Introduce heavy runtime dependencies before a module enters its migration phase.
-- Rewrite the whole repository in a single change.
 
 ## Acceptance Mindset
 - Prefer small, reviewable changes.
