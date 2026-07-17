@@ -123,7 +123,7 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "start_gui",
                 default_value="true",
-                description="Start the Qt5 operator GUI in navigation mode",
+                description="Start the Qt5 operator GUI in mapping or navigation mode",
             ),
             DeclareLaunchArgument("record_bag", default_value="false"),
             DeclareLaunchArgument("map_name", default_value="mid360_map"),
@@ -147,6 +147,7 @@ def generate_launch_description():
                     **common,
                     "map_name": LaunchConfiguration("map_name"),
                     "start_rviz": LaunchConfiguration("start_rviz"),
+                    "start_gui": LaunchConfiguration("start_gui"),
                 }.items(),
                 condition=LaunchConfigurationEquals("mode", "mapping"),
             ),

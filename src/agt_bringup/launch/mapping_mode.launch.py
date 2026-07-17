@@ -49,6 +49,7 @@ def generate_launch_description():
             DeclareLaunchArgument("start_sensor", default_value="true"),
             DeclareLaunchArgument("start_chassis", default_value="true"),
             DeclareLaunchArgument("start_rviz", default_value="true"),
+            DeclareLaunchArgument("start_gui", default_value="true"),
             DeclareLaunchArgument("record_bag", default_value="false"),
             OpaqueFunction(function=prepare_runtime),
             include(
@@ -103,6 +104,17 @@ def generate_launch_description():
                 parameters=[{"use_sim_time": use_sim_time}],
                 output="screen",
                 condition=IfCondition(LaunchConfiguration("start_rviz")),
+            ),
+            include(
+                "agt_ui_bridge",
+                "ros_qt5_gui.launch.py",
+                {
+                    "profile": "mapping",
+                    "source_map_topic": "/agt/map/mapping_occupancy",
+                    "map_frame_id": "odom",
+                    "use_sim_time": use_sim_time,
+                },
+                IfCondition(LaunchConfiguration("start_gui")),
             ),
             include(
                 "agt_bringup",
